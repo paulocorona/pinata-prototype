@@ -145,7 +145,7 @@ function emptyRoundStats(): RoundStats {
 }
 
 /** Debug: skip candy spend on upgrades; listed prices stay unchanged. */
-const DEBUG_FREE_UPGRADES = true;
+const DEBUG_FREE_UPGRADES = false;
 /** Debug: force this many pinatas at the start of rounds 1–2. 0 = normal starting count. */
 const DEBUG_ROUND_PINATAS = 0;
 
