@@ -1,7 +1,8 @@
 import * as THREE from "three";
 import { FBXLoader } from "three/examples/jsm/loaders/FBXLoader.js";
+import { assetUrl } from "../util/assetUrl";
 
-const BASE = "/stick";
+const BASE = assetUrl("stick");
 
 /** Target world length. */
 export const STICK_UNIT_HEIGHT = 1.44;

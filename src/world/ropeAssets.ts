@@ -1,7 +1,8 @@
 import * as THREE from "three";
 import { FBXLoader } from "three/examples/jsm/loaders/FBXLoader.js";
+import { assetUrl } from "../util/assetUrl";
 
-const BASE = "/rope";
+const BASE = assetUrl("rope");
 
 /**
  * World-space radius. Matches the old cylinder so the new mesh keeps the same

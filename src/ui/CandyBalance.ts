@@ -1,4 +1,5 @@
 import type { GameState } from "../game/GameState";
+import { assetUrl } from "../util/assetUrl";
 import { formatNumber } from "../util/math";
 
 /** Bottom-center candy bank — shown on round-end and upgrades screens only. */
@@ -10,7 +11,7 @@ export class CandyBalance {
     this.el = document.createElement("div");
     this.el.className = "candy-balance hidden";
     this.el.innerHTML = `
-      <img class="candy-coin-icon candy-balance-icon" src="/art/T_CandyCoin.png" alt="" draggable="false" aria-hidden="true" />
+      <img class="candy-coin-icon candy-balance-icon" src="${assetUrl("art/T_CandyCoin.png")}" alt="" draggable="false" aria-hidden="true" />
       <span class="candy-balance-value" data-value>0</span>
     `;
     root.appendChild(this.el);

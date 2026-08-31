@@ -18,6 +18,7 @@ import {
   type GridPos,
   type UpgradeLayoutMap,
 } from "../game/upgradeGrid";
+import { assetUrl } from "../util/assetUrl";
 
 const PAN_THRESHOLD_PX = 6;
 const ZOOM_MIN = 0.18;
@@ -214,7 +215,7 @@ export class UpgradeLayoutEditor {
           <button type="button" class="btn btn-secondary" data-lock ${sel ? "" : "disabled"}>
             ${sel && this.isLocked(sel.id) ? "Unlock" : "Lock"}
           </button>
-          <a class="btn btn-secondary" href="/">Game</a>
+          <a class="btn btn-secondary" href="${assetUrl("")}">Game</a>
           <button type="button" class="btn btn-secondary" data-undo ${canUndo ? "" : "disabled"}>Undo</button>
           <button type="button" class="btn btn-secondary" data-redo ${canRedo ? "" : "disabled"}>Redo</button>
           <button type="button" class="btn btn-secondary" data-copy>Copy</button>

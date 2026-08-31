@@ -61,7 +61,7 @@ body {
   height: var(--phone-h);
   overflow: hidden;
   border-radius: var(--phone-radius);
-  background: #e07830 url("/art/courtyard.jpg") center / cover no-repeat;
+  background: #e07830 var(--art-courtyard) center / cover no-repeat;
   cursor: none;
   container-type: size;
   container-name: phone;
@@ -1391,7 +1391,7 @@ body {
       rgba(8, 4, 12, 0.52) 45%,
       rgba(8, 4, 12, 0.62) 100%
     ),
-    url("/art/courtyard.jpg") center / cover no-repeat;
+    var(--art-courtyard) center / cover no-repeat;
   padding: calc(var(--safe-top) + 6px) 16px calc(var(--safe-bottom) + 18px);
 }
 

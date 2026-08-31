@@ -1,8 +1,9 @@
 import * as THREE from "three";
 import { FBXLoader } from "three/examples/jsm/loaders/FBXLoader.js";
+import { assetUrl } from "../util/assetUrl";
 import { PINATA_STENCIL_REF } from "./ropeAssets";
 
-const BASE = "/pinata";
+const BASE = assetUrl("pinata");
 
 /** Target world height for the pinata mesh (before PINATA_SCALE). */
 export const PINATA_UNIT_HEIGHT = 1.05;

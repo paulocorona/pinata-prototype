@@ -1,5 +1,8 @@
 import { Game } from "./game/Game";
 import { fitPhoneFrame } from "./deviceFrame";
+import { applyAssetCssVars } from "./util/assetUrl";
+
+applyAssetCssVars();
 
 const phoneSlot = document.querySelector<HTMLElement>("#phone-slot");
 const canvas = document.querySelector<HTMLCanvasElement>("#game-canvas");

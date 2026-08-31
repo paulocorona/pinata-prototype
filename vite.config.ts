@@ -90,7 +90,7 @@ function upgradeLayoutPlugin(): Plugin {
 
 export default defineConfig({
   root: ".",
-  base: "/",
+  base: process.env.GITHUB_PAGES === "true" ? "/pinata-prototype/" : "/",
   plugins: [upgradeLayoutPlugin()],
   server: {
     host: true,
@@ -101,7 +101,7 @@ export default defineConfig({
   build: {
     target: "es2022",
     outDir: "dist",
-    sourcemap: true,
+    sourcemap: process.env.GITHUB_PAGES !== "true",
     emptyOutDir: true,
   },
 });

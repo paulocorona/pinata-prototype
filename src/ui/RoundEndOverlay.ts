@@ -3,6 +3,7 @@ import { formatPercent } from "../game/balance";
 import { candyTypesForDisplay } from "../game/candyTypes";
 import { PINATA_TYPES, pinataPortraitSrc, type PinataTypeId } from "../game/pinataTypes";
 import { accentForPinataType, type PinataLevelRow } from "../game/pinataLevels";
+import { assetUrl } from "../util/assetUrl";
 import { formatNumber } from "../util/math";
 import { UnlockPinataPreview, skinForUnlockType } from "./UnlockPinataPreview";
 import { pinataSilhouetteSrc } from "./pinataSilhouette";
@@ -106,7 +107,7 @@ export class RoundEndOverlay {
             <div class="label">Candy</div>
             <div class="value candy-chip-value">
               +${formatNumber(candyBanked)}
-              <img class="candy-coin-icon" src="/art/T_CandyCoin.png" alt="" draggable="false" />
+              <img class="candy-coin-icon" src="${assetUrl("art/T_CandyCoin.png")}" alt="" draggable="false" />
             </div>
             <div class="piece-row">${candyBreakdown || `<span class="piece-empty">No candy this round</span>`}</div>
           </div>

@@ -1,3 +1,5 @@
+import { assetUrl } from "../util/assetUrl";
+
 export class BootScreen {
   readonly el: HTMLElement;
 
@@ -6,7 +8,7 @@ export class BootScreen {
     this.el.className = "overlay overlay-boot";
     this.el.innerHTML = `
       <div class="boot-hero">
-        <img class="boot-logo" src="/art/T_Logo.png" alt="Piñata Payday" draggable="false" />
+        <img class="boot-logo" src="${assetUrl("art/T_Logo.png")}" alt="Piñata Payday" draggable="false" />
         <div class="boot-actions">
           <button class="btn btn-primary boot-play interactive" data-start>PLAY</button>
           <button class="btn boot-shop interactive" data-shop>SHOP</button>

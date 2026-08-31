@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { assetUrl } from "../util/assetUrl";
 
 /** Play-depth Z of hanging pinatas. */
 export const PLAY_Z = -2.2;
@@ -19,7 +20,7 @@ const FLOOR_WIDTH = 64;
 
 const FLOOR_NORMAL = new THREE.Vector3(0, 1, -FLOOR_SLOPE_Z).normalize();
 
-const BACKDROP_URL = "/art/courtyard.jpg";
+const BACKDROP_URL = assetUrl("art/courtyard.jpg");
 /** Source image width / height — used to cover the portrait view. */
 const BACKDROP_ASPECT = 471 / 1024;
 const BACKDROP_DIST = 80;

@@ -1,3 +1,4 @@
+import { assetUrl } from "../util/assetUrl";
 import type { PinataSkinId } from "../world/pinataAssets";
 
 /** Inclusive candy range with a band weight (percent of total loot rolls). */
@@ -267,7 +268,7 @@ export function pinataPortraitSrc(typeId: string): string {
     typeId in PINATA_TYPES
       ? PINATA_TYPES[typeId as PinataTypeId].skin ?? "normal"
       : "normal";
-  return `/pinata/portraits/${skin}.png`;
+  return assetUrl(`pinata/portraits/${skin}.png`);
 }
 
 /** Floor candy collected this life, × payoutMult only after the fill timer. */
