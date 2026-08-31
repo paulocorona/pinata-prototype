@@ -1,0 +1,12 @@
+---
+description: Ask I vs II when a generic upgrade name is given for new unlocks
+alwaysApply: true
+---
+
+# Upgrade unlock names
+
+When the user names a parent upgrade for **new unlocks**, do not guess which roman-numeral variant they mean.
+
+If they give a generic family name (for example `Heavier Hits`, `Bigger Stick`, or `Richer Breaks`) **without** I, II, III…, stop and ask which one before adding nodes or wiring the tree.
+
+Only proceed without asking when they already specified the numeral, or the name is unique on the tree (no I/II siblings).
