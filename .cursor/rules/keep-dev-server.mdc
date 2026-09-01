@@ -1,0 +1,14 @@
+---
+description: Keep the game server up so Simple Browser never sticks on Connection Failed
+alwaysApply: true
+---
+
+# Dev server (http://localhost:5174)
+
+Simple Browser shows a sticky **Connection Failed** page when nothing answers on port 5174. It does not retry after Vite restarts or an agent shell is aborted.
+
+- After normal code edits, rely on HMR. Do not kill or restart Vite.
+- Never kill processes bound to ports **5174** or **5175**.
+- Never start `npm run dev` in a disposable agent shell. Those terminals get aborted and take the game down.
+- If 5174 is down, start `npm run dev:ensure` in the background and leave it running. That script is a gateway that stays up while Vite restarts behind it.
+- `npm run dev:ensure` is the only supported way for agents to bring the game up.

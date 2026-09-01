@@ -27,6 +27,7 @@ export class SummaryScreen {
         }</p>
         <div class="stats-row" style="justify-content:center">
           <div class="stat-chip"><div class="label">Total Candy</div><div class="value">${formatNumber(state.totalCandyEarned)}</div></div>
+          <div class="stat-chip"><div class="label">Tickets</div><div class="value">${formatNumber(state.ticketsEarnedThisRun)}</div></div>
           <div class="stat-chip"><div class="label">Breaks</div><div class="value">${formatNumber(state.totalBreaks)}</div></div>
           <div class="stat-chip"><div class="label">Hit Rate</div><div class="value">${hitRate}%</div></div>
           <div class="stat-chip"><div class="label">Best Aim</div><div class="value">${Math.round(state.bestBreakRate * 100)}%</div></div>

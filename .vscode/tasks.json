@@ -26,14 +26,16 @@
     },
     {
       "label": "Pinata: open browser",
-      "command": "${input:openSimpleBrowser}",
+      "type": "shell",
+      "command": "echo ${input:openSimpleBrowser}",
       "problemMatcher": [],
       "presentation": {
         "reveal": "never",
         "echo": false,
         "focus": false,
         "panel": "shared",
-        "showReuseMessage": false
+        "showReuseMessage": false,
+        "close": true
       }
     },
     {

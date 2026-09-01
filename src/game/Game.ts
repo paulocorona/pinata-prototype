@@ -32,12 +32,15 @@ import { UpgradeScreen } from "../ui/UpgradeScreen";
 import { OrderScreen } from "../ui/OrderScreen";
 import { SummaryScreen } from "../ui/SummaryScreen";
 import { LoseScreen } from "../ui/LoseScreen";
-import { BootScreen, spawnFloatText } from "../ui/BootScreen";
+import { TicketShopScreen } from "../ui/TicketShopScreen";
+import { BootScreen, spawnCandyFloatText, spawnFloatText } from "../ui/BootScreen";
+import { ShopScreen } from "../ui/ShopScreen";
 import { SettingsScreen } from "../ui/SettingsScreen";
 import { CandyBalance } from "../ui/CandyBalance";
 import { rng } from "../util/rng";
 import { formatNumber } from "../util/math";
 import type { UpgradeId } from "./balance";
+import type { StickId } from "./sticks";
 import {
   DIVINE_RAY,
   LOW_STAMINA_BONUS,
@@ -84,10 +87,13 @@ export class Game {
   private orderPrep: OrderScreen;
   private summary: SummaryScreen;
   private lose: LoseScreen;
+  private ticketShop: TicketShopScreen;
   private boot: BootScreen;
+  private shop: ShopScreen;
   private settings: SettingsScreen;
   private uiRoot: HTMLElement;
   private canvas: HTMLCanvasElement;
+  private assetsReady: Promise<void>;
 
   private width = 1;
   private height = 1;
@@ -201,26 +207,24 @@ export class Game {
     this.orderPrep = new OrderScreen(uiRoot);
     this.summary = new SummaryScreen(uiRoot);
     this.lose = new LoseScreen(uiRoot);
+    this.ticketShop = new TicketShopScreen(uiRoot);
     this.boot = new BootScreen(uiRoot);
+    this.shop = new ShopScreen(uiRoot);
     this.settings = new SettingsScreen(uiRoot);
 
     this.bindInput();
     requestAnimationFrame(() => this.onResize());
 
-    const assetsReady = Promise.all([
+    this.assetsReady = Promise.all([
       this.factory.load(this.renderer),
       this.arena.load(this.cameraRig.perspective),
       this.weapon.load(this.renderer),
       this.ghostStickFx.load(this.renderer),
-    ]);
-
-    this.showBootScreen(() => {
-      void (async () => {
-        await assetsReady;
-        void this.audio.unlock();
-        this.startRound();
-      })();
+    ]).then(() => {
+      this.syncWeaponStick();
     });
+
+    this.showBootScreen();
 
     this.lastTime = performance.now();
     requestAnimationFrame(this.frame);
@@ -496,6 +500,9 @@ export class Game {
     this.orderPrep.hide();
     this.summary.hide();
     this.lose.hide();
+    this.ticketShop.hide();
+    this.shop.hide();
+    this.settings.hide();
   }
 
   private finishRound(): void {
@@ -605,7 +612,8 @@ export class Game {
   }
 
   private openOrderScreen(opts?: { keepRoundEnd?: boolean }): void {
-    this.candyBalance.hide();
+    this.candyBalance.show();
+    this.syncCandyUi();
     if (!opts?.keepRoundEnd) this.roundEnd.hide();
     this.state.nextOrderAwaitingRound = false;
     this.orderPrep.show(
@@ -680,10 +688,33 @@ export class Game {
     this.candyBalance.hide();
     this.summary.hide();
     this.state.endRunEarly();
-    this.lose.show(() => this.restart());
+    this.state.persistTickets();
+    this.lose.show(this.state, () => {
+      this.audio.ui();
+      this.openTicketShop();
+    });
+  }
+
+  private openTicketShop(): void {
+    this.lose.hide();
+    this.candyBalance.show();
+    this.candyBalance.sync(this.state, "tickets");
+    this.ticketShop.show(this.state, {
+      onBuy: (id) => {
+        if (!this.state.buyTicketUpgrade(id)) return;
+        this.audio.ui();
+        this.candyBalance.sync(this.state, "tickets");
+        this.ticketShop.refresh();
+      },
+      onContinue: () => {
+        this.audio.ui();
+        this.restart();
+      },
+    });
   }
 
   private restart(): void {
+    this.state.bankRunCandy();
     this.state.resetRun();
     this.clearPinatas();
     this.candyBalance.hide();
@@ -693,17 +724,30 @@ export class Game {
     this.orderPrep.hide();
     this.summary.hide();
     this.lose.hide();
+    this.ticketShop.hide();
+    this.shop.hide();
     this.hud.hide();
     this.reticle.hide();
     this.settings.hide();
-    this.showBootScreen(() => {
-      void this.audio.unlock();
-      this.startRound();
-    });
+    this.showBootScreen();
   }
 
-  private showBootScreen(onStart: () => void): void {
-    this.boot.show(onStart, null, () => this.openSettings());
+  private showBootScreen(): void {
+    this.shop.hide();
+    this.ticketShop.hide();
+    this.settings.hide();
+    this.candyBalance.hide();
+    this.boot.show(
+      () => {
+        void (async () => {
+          await this.assetsReady;
+          void this.audio.unlock();
+          this.startRound();
+        })();
+      },
+      () => this.openShop(),
+      () => this.openSettings(),
+    );
   }
 
   private openSettings(): void {
@@ -712,6 +756,31 @@ export class Game {
     this.settings.show(this.audio, () => {
       this.boot.setBehindSettings(false);
     });
+  }
+
+  private openShop(): void {
+    this.settings.hide();
+    this.boot.hide();
+    this.candyBalance.show();
+    this.candyBalance.sync(this.state, "shop");
+    this.shop.show(this.state, {
+      onBack: () => this.showBootScreen(),
+      onBuy: (id: StickId) => {
+        if (!this.state.buyStick(id)) return;
+        this.syncWeaponStick();
+        this.candyBalance.sync(this.state, "shop");
+        this.shop.refresh();
+      },
+      onEquip: (id: StickId) => {
+        if (!this.state.equipStick(id)) return;
+        this.syncWeaponStick();
+        this.shop.refresh();
+      },
+    });
+  }
+
+  private syncWeaponStick(): void {
+    this.weapon.setHue(this.state.getEquippedStick().hue);
   }
 
   private syncCandyUi(): void {
@@ -738,14 +807,13 @@ export class Game {
           : hit.doubleLoot
             ? "#ff9f1c"
             : "#ffe600";
-      spawnFloatText(
+      spawnCandyFloatText(
         this.uiRoot,
         hit.screenX,
         hit.screenY + 10,
-        hit.doubleLoot || hit.superJackpot ? `+${formatNumber(hit.candy)} x2` : `+${formatNumber(hit.candy)}`,
+        hit.doubleLoot || hit.superJackpot ? `${formatNumber(hit.candy)} x2` : formatNumber(hit.candy),
         candyColor,
         1400,
-        "float-text-candy",
       );
       if (hit.superJackpot) {
         spawnFloatText(

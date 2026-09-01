@@ -1,6 +1,14 @@
 import * as THREE from "three";
 import { MOVEMENT_DEFAULTS } from "../game/balance";
-import { applyBurnTint, applyGlowIdle, applyHitTint, HIT_MESH_DURATION, PINATA_SCALE, type PinataEntity } from "../world/PinataFactory";
+import {
+  applyBurnTint,
+  applyHitTint,
+  applyLowHpOrIdleTint,
+  HIT_MESH_DURATION,
+  LOW_HP_FLASH_THRESHOLD,
+  PINATA_SCALE,
+  type PinataEntity,
+} from "../world/PinataFactory";
 import { ROPE_BEAM_Y, setRopeLength } from "../world/ropeAssets";
 
 /** Overdamped rope catch so warmup drop-ins settle without a bounce. */
@@ -107,6 +115,10 @@ export class PinataMovement {
       p.rope.position.copy(p.body.position);
       const ropeLen = Math.max(0.4, ROPE_BEAM_Y - (p.group.position.y + p.rope.position.y));
       setRopeLength(p.rope, ropeLen);
+      const lowHp = p.maxHp > 0 && p.hp / p.maxHp <= LOW_HP_FLASH_THRESHOLD;
+      if (lowHp) p.lowHpFlashT += dt;
+      else p.lowHpFlashT = 0;
+
       if (p.hitMeshTimer > 0) {
         applyHitTint(p.bodyMat, p.hitMeshTimer / HIT_MESH_DURATION, p.glowing);
         p.hitMeshTimer = Math.max(0, p.hitMeshTimer - dt);
@@ -114,14 +126,12 @@ export class PinataMovement {
           p.idleVisual.visible = true;
           p.hitVisual.visible = false;
           if (p.burnRemaining > 0) applyBurnTint(p);
-          else applyHitTint(p.bodyMat, 0, p.glowing);
+          else applyLowHpOrIdleTint(p);
         }
       } else if (p.burnRemaining > 0) {
         applyBurnTint(p);
-      } else if (p.glowing) {
-        applyGlowIdle(p);
       } else {
-        applyHitTint(p.bodyMat, 0, false);
+        applyLowHpOrIdleTint(p);
       }
     }
   }

@@ -53,6 +53,21 @@ export class BootScreen {
   }
 }
 
+function placeFloatText(
+  root: HTMLElement,
+  el: HTMLElement,
+  x: number,
+  y: number,
+  color: string,
+  durationMs: number,
+): void {
+  el.style.left = `${x}px`;
+  el.style.top = `${y}px`;
+  el.style.color = color;
+  root.appendChild(el);
+  window.setTimeout(() => el.remove(), durationMs);
+}
+
 export function spawnFloatText(
   root: HTMLElement,
   x: number,
@@ -65,9 +80,28 @@ export function spawnFloatText(
   const el = document.createElement("div");
   el.className = extraClass ? `float-text ${extraClass}` : "float-text";
   el.textContent = text;
-  el.style.left = `${x}px`;
-  el.style.top = `${y}px`;
-  el.style.color = color;
-  root.appendChild(el);
-  window.setTimeout(() => el.remove(), durationMs);
+  placeFloatText(root, el, x, y, color, durationMs);
+}
+
+/** Piñata-destroy loot popup: candy-coin icon + amount (no leading +). */
+export function spawnCandyFloatText(
+  root: HTMLElement,
+  x: number,
+  y: number,
+  amount: string,
+  color = "#ffe600",
+  durationMs = 1400,
+): void {
+  const el = document.createElement("div");
+  el.className = "float-text float-text-candy";
+  const icon = document.createElement("img");
+  icon.className = "float-text-coin";
+  icon.src = assetUrl("art/T_CandyCoin.png");
+  icon.alt = "";
+  icon.draggable = false;
+  const label = document.createElement("span");
+  label.className = "float-text-candy-amount";
+  label.textContent = amount;
+  el.append(icon, label);
+  placeFloatText(root, el, x, y, color, durationMs);
 }

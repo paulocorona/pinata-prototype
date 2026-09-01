@@ -60,6 +60,8 @@ export interface PinataEntity {
   dropY: number;
   dropVelY: number;
   damageFlash: number;
+  /** Elapsed time in the low-HP red pulse; 0 when above the threshold. */
+  lowHpFlashT: number;
   /** Pendulum angle (rad) and velocity after a hit. */
   swing: number;
   swingVel: number;
@@ -95,6 +97,13 @@ const _hitWorld = new THREE.Vector3();
 export function getPinataHitWorld(p: PinataEntity, out = _hitWorld): THREE.Vector3 {
   return p.hitAnchor.getWorldPosition(out);
 }
+
+/** Flash red at or below this remaining HP fraction. */
+export const LOW_HP_FLASH_THRESHOLD = 0.3;
+/** Seconds for one full low-HP sine cycle (50% faster than a 2s wave). */
+export const LOW_HP_FLASH_PERIOD = 2 / 1.5;
+/** Peak sine mix into the red warning tint. */
+const LOW_HP_FLASH_PEAK = 0.92;
 
 export function applyHitTint(mat: THREE.MeshStandardMaterial, strength: number, glowing = false): void {
   const t = THREE.MathUtils.clamp(strength, 0, 1);
@@ -133,6 +142,39 @@ export function applyGlowIdle(p: PinataEntity): void {
   const pulse = 0.5 + 0.28 * Math.sin(p.phase * 5);
   p.bodyMat.emissive.setHex(0xffd166);
   p.bodyMat.emissiveIntensity = 0.42 + pulse;
+}
+
+/** 0–1 sine, one cycle every LOW_HP_FLASH_PERIOD seconds. */
+export function lowHpFlashStrength(elapsed: number): number {
+  const wave = 0.5 + 0.5 * Math.sin((elapsed / LOW_HP_FLASH_PERIOD) * Math.PI * 2);
+  return wave * LOW_HP_FLASH_PEAK;
+}
+
+export function applyLowHpSineTint(
+  mat: THREE.MeshStandardMaterial,
+  strength: number,
+  glowing = false,
+): void {
+  const t = THREE.MathUtils.clamp(strength, 0, 1);
+  if (glowing) {
+    mat.emissive.setRGB(1, 0.82 * (1 - t) + 0.14 * t, 0.4 * (1 - t));
+    mat.emissiveIntensity = 0.42 + 0.7 * t;
+    mat.color.setRGB(1, 1 - 0.38 * t, 1 - 0.46 * t);
+    return;
+  }
+  mat.emissive.setHex(0xff2414);
+  mat.emissiveIntensity = t * 0.95;
+  mat.color.setRGB(1, 1 - 0.52 * t, 1 - 0.6 * t);
+}
+
+export function applyLowHpOrIdleTint(p: PinataEntity): void {
+  const lowHp = p.maxHp > 0 && p.hp / p.maxHp <= LOW_HP_FLASH_THRESHOLD;
+  if (lowHp) {
+    applyLowHpSineTint(p.bodyMat, lowHpFlashStrength(p.lowHpFlashT), p.glowing);
+    return;
+  }
+  if (p.glowing) applyGlowIdle(p);
+  else applyHitTint(p.bodyMat, 0, false);
 }
 
 export class PinataFactory {
@@ -265,6 +307,7 @@ export class PinataFactory {
       dropY: 0,
       dropVelY: 0,
       damageFlash: 0,
+      lowHpFlashT: 0,
       swing: 0,
       swingVel: 0,
       hitMeshTimer: 0,

@@ -1,4 +1,5 @@
 import { formatNumber } from "../util/math";
+import { getEquippedStick } from "./sticks";
 
 export type UpgradeId =
   | "power"
@@ -250,7 +251,7 @@ export const BASE = {
    * Absolute aim / hit scalar at multiplier 1.0 (current size).
    * Upgrade multipliers scale this; tune here if the baseline size changes.
    */
-  hitRadius: 0.7,
+  hitRadius: 0.56,
   /** Energy is a 0–100 bar that empties over the round */
   maxStamina: 100,
   /** Base round length in seconds (energy 100 → 0 at base drain) */
@@ -1040,8 +1041,12 @@ export function attackSpeedBonusFor(upgrades: UpgradeLevels, staminaUsed = 0): n
   return bonus;
 }
 
+function equippedSwingRate(): number {
+  return getEquippedStick().attackSpeed;
+}
+
 export function swingRateFor(upgrades: UpgradeLevels, staminaUsed = 0): number {
-  return BASE.swingRate * (1 + attackSpeedBonusFor(upgrades, staminaUsed));
+  return equippedSwingRate() * (1 + attackSpeedBonusFor(upgrades, staminaUsed));
 }
 
 export function formatSwingRate(rate: number): string {
@@ -1345,7 +1350,7 @@ function luckDescription(id: UpgradeId, pctLabel: string, flavor?: string) {
 }
 
 export function basePowerFor(upgrades: UpgradeLevels): number {
-  return BASE.power + upgrades.power * POWER_PER_LEVEL;
+  return getEquippedStick().baseDamage + upgrades.power * POWER_PER_LEVEL;
 }
 
 export function moreDamageBonusFor(basePower: number, ratio = MORE_DAMAGE_RATIO): number {
@@ -1470,7 +1475,7 @@ export function collateralBonusFor(power: number): number {
 }
 
 export function critChanceFor(upgrades: UpgradeLevels): number {
-  let chance = 0;
+  let chance = getEquippedStick().critChance;
   for (const [id, amount] of Object.entries(CRIT_CHANCE_BONUS) as [UpgradeId, number][]) {
     if (upgrades[id] >= 1) chance += amount;
   }
@@ -4203,6 +4208,25 @@ export function upgradeDisplayName(def: UpgradeDef): string {
   return `${def.name} ${numeral}`;
 }
 
+/** Split a display name onto two lines that fit a square node. */
+export function upgradeTitleLines(def: UpgradeDef): [string, string] {
+  const name = upgradeDisplayName(def);
+  const words = name.trim().split(/\s+/);
+  if (words.length < 2) return [name, ""];
+  let best = 1;
+  let bestScore = Infinity;
+  for (let i = 1; i < words.length; i++) {
+    const left = words.slice(0, i).join(" ").length;
+    const right = words.slice(i).join(" ").length;
+    const score = Math.abs(left - right);
+    if (score < bestScore) {
+      bestScore = score;
+      best = i;
+    }
+  }
+  return [words.slice(0, best).join(" "), words.slice(best).join(" ")];
+}
+
 export function upgradeNameById(id: UpgradeId): string {
   const def = UPGRADES.find((u) => u.id === id);
   return def ? upgradeDisplayName(def) : id;
@@ -4433,6 +4457,17 @@ export const FINALE_UPGRADE_IDS = [
   "moreCritDamage5",
   "moreSpeed4",
 ] as const satisfies readonly UpgradeId[];
+
+/** Secondary currency from Fiesta order payments. Spends in the post-loss ticket shop. */
+export const ORDER_CURRENCY = {
+  candyPerUnit: 50,
+  name: "Tickets",
+  singular: "Ticket",
+} as const;
+
+export function orderCurrencyName(amount: number): string {
+  return amount === 1 ? ORDER_CURRENCY.singular : ORDER_CURRENCY.name;
+}
 
 export const FIESTA_ORDERS = [
   { round: 1, name: "Birthday Bags", flavor: "Fill candy bags for a small backyard birthday.", target: 20, dueInRounds: 0 },

@@ -4,16 +4,22 @@ import {
   emptyUpgrades,
   upgradeDescription,
   upgradeDisplayName,
+  upgradeTitleLines,
   type UpgradeId,
 } from "../game/balance";
 import { SKILL_TREE_GRID, UPGRADE_LAYOUT } from "../game/upgradeLayout";
 import { formatUpgradeLayoutSource } from "../game/upgradeLayoutFile";
 import {
+  LAYOUT_CELL_PX,
+  LAYOUT_NODE_CENTER_PX,
+  LAYOUT_NODE_PX,
   cloneLayout,
+  insetSkillEdge,
   layoutsEqual,
   moveOrSwap,
   occupantAt,
   percentToCell,
+  skillNodeRadiusPx,
   upgradeCellCenter,
   type GridPos,
   type UpgradeLayoutMap,
@@ -187,7 +193,7 @@ export class UpgradeLayoutEditor {
           title="${desc}${locked ? " — Locked in editor" : ""}"
         >
           <span class="skill-node-ring" aria-hidden="true"></span>
-          <span class="skill-node-name">${upgradeDisplayName(u)}</span>
+          <span class="skill-node-name">${upgradeTitleLines(u).filter(Boolean).join("<br>")}</span>
           <span class="layout-lock-badge" data-lock-toggle title="Click to ${locked ? "unlock" : "lock"}">${LOCK_ICON}</span>
         </button>`;
     }).join("");
@@ -245,11 +251,22 @@ export class UpgradeLayoutEditor {
     this.applyPan();
   }
 
+  private edgeLine(from: UpgradeId, to: UpgradeId, a: { x: number; y: number }, b: { x: number; y: number }): string {
+    const line = insetSkillEdge(
+      a,
+      b,
+      skillNodeRadiusPx(from, LAYOUT_NODE_PX, LAYOUT_NODE_CENTER_PX),
+      skillNodeRadiusPx(to, LAYOUT_NODE_PX, LAYOUT_NODE_CENTER_PX),
+      LAYOUT_CELL_PX,
+    );
+    return `<line class="skill-edge lit" x1="${line.x1}%" y1="${line.y1}%" x2="${line.x2}%" y2="${line.y2}%" />`;
+  }
+
   private edgeMarkup(): string {
     return SKILL_TREE_EDGES.map(([from, to]) => {
       const a = upgradeCellCenter(this.layout[from]);
       const b = upgradeCellCenter(this.layout[to]);
-      return `<line class="skill-edge lit" x1="${a.x}%" y1="${a.y}%" x2="${b.x}%" y2="${b.y}%" />`;
+      return this.edgeLine(from, to, a, b);
     }).join("");
   }
 
@@ -489,7 +506,7 @@ export class UpgradeLayoutEditor {
     svg.innerHTML = SKILL_TREE_EDGES.map(([from, to]) => {
       const a = posOf(from);
       const b = posOf(to);
-      return `<line class="skill-edge lit" x1="${a.x}%" y1="${a.y}%" x2="${b.x}%" y2="${b.y}%" />`;
+      return this.edgeLine(from, to, a, b);
     }).join("");
   }
 

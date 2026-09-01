@@ -8,7 +8,7 @@ export class Reticle {
 
   /** Diameter in CSS pixels — grows with hit-radius upgrades. */
   setSize(diameterPx: number): void {
-    const size = Number.isFinite(diameterPx) ? Math.max(56, diameterPx) : 72;
+    const size = Number.isFinite(diameterPx) ? Math.max(45, diameterPx) : 58;
     this.el.style.setProperty("--ch-size", `${size}px`);
   }
 

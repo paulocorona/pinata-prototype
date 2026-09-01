@@ -45,6 +45,53 @@ export function upgradePosition(id: UpgradeId): { x: number; y: number } {
   return upgradeCellCenter(UPGRADE_LAYOUT[id]);
 }
 
+/** Must match `--skill-tree-cell` / `.skill-node` in style.css. */
+export const SKILL_TREE_CELL_PX = 128;
+export const SKILL_NODE_PX = 96;
+export const SKILL_NODE_CENTER_PX = 104;
+export const LAYOUT_CELL_PX = 208;
+export const LAYOUT_NODE_PX = 160;
+export const LAYOUT_NODE_CENTER_PX = 176;
+
+export function skillNodeRadiusPx(
+  id: UpgradeId,
+  nodePx: number,
+  centerPx: number,
+): number {
+  return ((id === "power" ? centerPx : nodePx) / 2) + 1;
+}
+
+/** Shorten a percent-space edge so it stops under each node instead of crossing it. */
+export function insetSkillEdge(
+  from: { x: number; y: number },
+  to: { x: number; y: number },
+  fromRadiusPx: number,
+  toRadiusPx: number,
+  cellPx: number,
+  grid: GridSize = SKILL_TREE_GRID,
+): { x1: number; y1: number; x2: number; y2: number } {
+  const mapW = grid.cols * cellPx;
+  const mapH = grid.rows * cellPx;
+  const ax = (from.x / 100) * mapW;
+  const ay = (from.y / 100) * mapH;
+  const bx = (to.x / 100) * mapW;
+  const by = (to.y / 100) * mapH;
+  const dx = bx - ax;
+  const dy = by - ay;
+  const len = Math.hypot(dx, dy);
+  if (len <= fromRadiusPx + toRadiusPx) {
+    return { x1: from.x, y1: from.y, x2: to.x, y2: to.y };
+  }
+  const ux = dx / len;
+  const uy = dy / len;
+  return {
+    x1: ((ax + ux * fromRadiusPx) / mapW) * 100,
+    y1: ((ay + uy * fromRadiusPx) / mapH) * 100,
+    x2: ((bx - ux * toRadiusPx) / mapW) * 100,
+    y2: ((by - uy * toRadiusPx) / mapH) * 100,
+  };
+}
+
 export function occupantAt(
   layout: UpgradeLayoutMap,
   col: number,

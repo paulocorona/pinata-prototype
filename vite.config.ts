@@ -94,7 +94,7 @@ export default defineConfig({
   plugins: [upgradeLayoutPlugin()],
   server: {
     host: true,
-    port: 5174,
+    port: Number(process.env.PINATA_VITE_PORT || 5174),
     strictPort: true,
     open: false,
   },

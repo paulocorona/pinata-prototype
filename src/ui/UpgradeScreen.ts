@@ -1,7 +1,22 @@
-import { SKILL_TREE_EDGES, UPGRADES, upgradeDescription, upgradeDisplayName, upgradeNameById } from "../game/balance";
+import {
+  SKILL_TREE_EDGES,
+  UPGRADES,
+  upgradeDescription,
+  upgradeDisplayName,
+  upgradeNameById,
+  upgradeTitleLines,
+} from "../game/balance";
 import type { GameState } from "../game/GameState";
 import type { UpgradeId } from "../game/balance";
-import { upgradePosition } from "../game/upgradeGrid";
+import {
+  SKILL_NODE_CENTER_PX,
+  SKILL_NODE_PX,
+  SKILL_TREE_CELL_PX,
+  insetSkillEdge,
+  skillNodeRadiusPx,
+  upgradePosition,
+} from "../game/upgradeGrid";
+import { assetUrl } from "../util/assetUrl";
 import { formatNumber } from "../util/math";
 
 const PAN_THRESHOLD_PX = 6;
@@ -67,12 +82,19 @@ export class UpgradeScreen {
       .map(([from, to]) => {
         const a = upgradePosition(from);
         const b = upgradePosition(to);
+        const line = insetSkillEdge(
+          a,
+          b,
+          skillNodeRadiusPx(from, SKILL_NODE_PX, SKILL_NODE_CENTER_PX),
+          skillNodeRadiusPx(to, SKILL_NODE_PX, SKILL_NODE_CENTER_PX),
+          SKILL_TREE_CELL_PX,
+        );
         const lit = state.upgrades[from] >= 1;
         return `
         <line
           class="skill-edge${lit ? " lit" : ""}"
-          x1="${a.x}%" y1="${a.y}%"
-          x2="${b.x}%" y2="${b.y}%"
+          x1="${line.x1}%" y1="${line.y1}%"
+          x2="${line.x2}%" y2="${line.y2}%"
         />`;
       })
       .join("");
@@ -124,7 +146,9 @@ export class UpgradeScreen {
             ? `Locked — buy ${missingAll.join(", ") || "a connected upgrade"} first`
             : `Locked — buy a connected upgrade first`;
 
-        const price = maxed ? "Owned" : `${formatNumber(cost)} candy`;
+        const priceHtml = maxed
+          ? "Owned"
+          : `<img class="skill-node-candy" src="${assetUrl("art/T_CandyCoin.png")}" alt="" draggable="false" /><span>${escapeHtml(formatNumber(cost))}</span>`;
         const tipParts = [desc];
         if (!unlocked) tipParts.push(lockReason);
         else if (!maxed && !can) {
@@ -132,6 +156,8 @@ export class UpgradeScreen {
         }
         const tip = tipParts.join("\n\n");
         const name = upgradeDisplayName(u);
+        const [title1, title2] = upgradeTitleLines(u);
+        const priceLabel = maxed ? "Owned" : `${formatNumber(cost)} candy`;
 
         const pos = upgradePosition(u.id);
         return `
@@ -141,11 +167,11 @@ export class UpgradeScreen {
           data-tip="${escapeHtml(tip)}"
           style="left:${pos.x}%;top:${pos.y}%"
           ${!can ? "disabled" : ""}
-          aria-label="${escapeHtml(`${name}. ${desc}`)}"
+          aria-label="${escapeHtml(`${name}. ${priceLabel}. ${desc}`)}"
         >
           <span class="skill-node-ring" aria-hidden="true"></span>
-          <span class="skill-node-name">${escapeHtml(name)}</span>
-          <span class="skill-node-cost">${escapeHtml(price)}</span>
+          <span class="skill-node-name">${escapeHtml(title1)}${title2 ? `<br>${escapeHtml(title2)}` : ""}</span>
+          <span class="skill-node-cost">${priceHtml}</span>
         </button>
       `;
       })

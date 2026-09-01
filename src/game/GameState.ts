@@ -1,8 +1,10 @@
 import {
   BASE,
+  CRIT_DAMAGE_MULT,
   CRIT_KILL_DOUBLE_LOOT,
   CANDY_RAIN,
   FIESTA_ORDERS,
+  ORDER_CURRENCY,
   LOW_HP_CRITS,
   LUCKY_CRIT,
   ORDERS_UNLOCK_UPGRADES,
@@ -115,6 +117,13 @@ import {
   type StickDef,
   type StickId,
 } from "./sticks";
+import {
+  emptyTicketUpgradeLevels,
+  loadTicketShopSave,
+  saveTicketShopSave,
+  ticketUpgradeById,
+  TICKET_RING,
+} from "./ticketShop";
 
 export type Phase = "boot" | "warmup" | "roundActive" | "roundEnd" | "betweenRounds" | "runSummary";
 
@@ -166,6 +175,17 @@ export class GameState {
   round = 1;
   candy = 0;
   roundCandy = 0;
+  /**
+   * Persistent Tickets bank (earned from Fiesta order payments).
+   * Survives losses and new runs.
+   */
+  tickets = 0;
+  /** Candy paid toward orders that has not yet converted into a ticket. */
+  ticketProgress = 0;
+  /** Tickets granted this run — shown on the lose payout HUD. */
+  ticketsEarnedThisRun = 0;
+  /** Permanent ticket-shop upgrades. Persists across runs. */
+  ticketUpgrades: Record<string, number> = emptyTicketUpgradeLevels();
   /** Index into FIESTA_ORDERS — independent of round so early rounds can skip orders. */
   orderIndex = 0;
   orderContributed = 0;
@@ -239,6 +259,7 @@ export class GameState {
 
   constructor() {
     this.restoreShop();
+    this.restoreTickets();
   }
 
   resetRun(): void {
@@ -246,6 +267,8 @@ export class GameState {
     this.round = 1;
     this.candy = 0;
     this.roundCandy = 0;
+    this.ticketProgress = 0;
+    this.ticketsEarnedThisRun = 0;
     this.orderIndex = 0;
     this.orderContributed = 0;
     this.orderDueInRounds = 0;
@@ -318,8 +341,13 @@ export class GameState {
     return countUnlockedPinataTypes(this.unlockStats());
   }
 
+  hasTicketUpgrade(id: string): boolean {
+    return this.ticketUpgradeLevel(id) >= 1;
+  }
+
   getPower(): number {
-    return powerFor(this.upgrades, this.unlockedPinataTypeCount(), this.totalBreaks);
+    const power = powerFor(this.upgrades, this.unlockedPinataTypeCount(), this.totalBreaks);
+    return power + (this.hasTicketUpgrade("damageRing") ? TICKET_RING.damage : 0);
   }
 
   /** Extra damage added when a swing connects with 2+ piñatas. */
@@ -331,6 +359,7 @@ export class GameState {
   /** 0–1 chance for a swing or Ghost Stick hit to crit. Pass HP ratio for Cracked Crits. */
   getCritChance(hpRatio?: number): number {
     let chance = critChanceFor(this.upgrades);
+    if (this.hasTicketUpgrade("critRing")) chance += TICKET_RING.critChance;
     if (
       this.hasUpgrade("lowHpCrits") &&
       hpRatio != null &&
@@ -342,7 +371,9 @@ export class GameState {
   }
 
   getCritDamageMult(): number {
-    return critDamageMultFor(this.upgrades);
+    const mult = critDamageMultFor(this.upgrades);
+    if (!this.hasTicketUpgrade("critRing")) return mult;
+    return mult + CRIT_DAMAGE_MULT * TICKET_RING.critDamage;
   }
 
   applyCrit(damage: number): number {
@@ -662,13 +693,16 @@ export class GameState {
   }
 
   getMaxStamina(): number {
-    return maxStaminaFor(this.upgrades);
+    return maxStaminaFor(this.upgrades) + (this.hasTicketUpgrade("staminaRing") ? TICKET_RING.stamina : 0);
   }
 
   /** Concurrent pinatas at round start / after a full wipe refill. */
   getStartingPinataCount(): number {
     if (DEBUG_ROUND_PINATAS > 0 && this.round <= 2) return DEBUG_ROUND_PINATAS;
-    return startingPinataCountFor(this.upgrades);
+    return (
+      startingPinataCountFor(this.upgrades) +
+      (this.hasTicketUpgrade("pinataRing") ? TICKET_RING.pinatas : 0)
+    );
   }
 
   /** Round length in seconds at the current stamina pool and drain. */
@@ -690,7 +724,8 @@ export class GameState {
 
   /** Multiplier applied to candy from every source. */
   getCandyMultiplier(): number {
-    return lootMultiplierFor(this.upgrades, this.unlockedPinataTypeCount(), this.totalBreaks);
+    const loot = lootMultiplierFor(this.upgrades, this.unlockedPinataTypeCount(), this.totalBreaks);
+    return loot + (this.hasTicketUpgrade("lootRing") ? TICKET_RING.loot : 0);
   }
 
   getPinataTypeLevel(typeId: string): number {
@@ -863,6 +898,13 @@ export class GameState {
     return `DUE IN ${this.orderDueInRounds} ROUNDS`;
   }
 
+  /** Value only — the order poster already prints "DUE DATE:". */
+  orderDueValueText(): string {
+    if (this.orderDueInRounds <= 0) return "NOW!";
+    if (this.orderDueInRounds === 1) return "1 ROUND";
+    return `${this.orderDueInRounds} ROUNDS`;
+  }
+
   canFillOrder(): boolean {
     return this.candy >= this.orderRemaining();
   }
@@ -968,12 +1010,62 @@ export class GameState {
     });
   }
 
+  private restoreTickets(): void {
+    const save = loadTicketShopSave();
+    this.tickets = save.tickets;
+    this.ticketUpgrades = save.upgrades;
+  }
+
+  persistTickets(): void {
+    saveTicketShopSave({
+      tickets: this.tickets,
+      upgrades: this.ticketUpgrades,
+    });
+  }
+
+  ticketUpgradeLevel(id: string): number {
+    return this.ticketUpgrades[id] ?? 0;
+  }
+
+  canBuyTicketUpgrade(id: string): boolean {
+    const def = ticketUpgradeById(id);
+    if (!def) return false;
+    const level = this.ticketUpgradeLevel(id);
+    if (level >= def.maxLevel) return false;
+    const cost = def.costs[level];
+    return cost != null && this.tickets >= cost;
+  }
+
+  buyTicketUpgrade(id: string): boolean {
+    if (!this.canBuyTicketUpgrade(id)) return false;
+    const def = ticketUpgradeById(id)!;
+    const cost = def.costs[this.ticketUpgradeLevel(id)]!;
+    this.tickets -= cost;
+    this.ticketUpgrades[id] = this.ticketUpgradeLevel(id) + 1;
+    this.persistTickets();
+    return true;
+  }
+
   contributeToOrder(amount: number): number {
     const remaining = this.orderRemaining();
     const spent = Math.min(amount, remaining, this.candy);
     this.candy -= spent;
     this.orderContributed += spent;
+    if (spent > 0) this.grantTicketsFromOrderPayment(spent);
     return spent;
+  }
+
+  /** 1 ticket per ORDER_CURRENCY.candyPerUnit candy paid into orders. */
+  private grantTicketsFromOrderPayment(spent: number): number {
+    this.ticketProgress += spent;
+    const gained = Math.floor(this.ticketProgress / ORDER_CURRENCY.candyPerUnit);
+    if (gained > 0) {
+      this.ticketProgress -= gained * ORDER_CURRENCY.candyPerUnit;
+      this.tickets += gained;
+      this.ticketsEarnedThisRun += gained;
+    }
+    this.persistTickets();
+    return gained;
   }
 
   contributeAllToOrder(): number {
