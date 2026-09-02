@@ -1,8 +1,6 @@
 /** iPhone 15 CSS viewport (points). */
 export const PHONE_WIDTH = 393;
 export const PHONE_HEIGHT = 852;
-/** Bezel around the screen in CSS pixels, before scale. */
-export const PHONE_BEZEL = 14;
 
 function isHandheld(): boolean {
   return window.matchMedia("(hover: none) and (pointer: coarse)").matches;
@@ -61,12 +59,10 @@ export function installPortraitLock(gate: HTMLElement): void {
 }
 
 export function phoneScale(): number {
-  const dw = PHONE_WIDTH + PHONE_BEZEL * 2;
-  const dh = PHONE_HEIGHT + PHONE_BEZEL * 2;
   const margin = 24;
   return Math.min(
-    (window.innerWidth - margin) / dw,
-    (window.innerHeight - margin) / dh,
+    (window.innerWidth - margin) / PHONE_WIDTH,
+    (window.innerHeight - margin) / PHONE_HEIGHT,
   );
 }
 

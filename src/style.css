@@ -56,11 +56,9 @@
   --font-ui: "Nunito", system-ui, sans-serif;
   --phone-w: 393px;
   --phone-h: 852px;
-  --phone-bezel: 14px;
   --phone-scale: 1;
-  --phone-radius: 47px;
-  --safe-top: 54px;
-  --safe-bottom: 28px;
+  --safe-top: 16px;
+  --safe-bottom: 16px;
   /* Square skill-tree cells so square nodes sit without overlap. */
   --skill-tree-cell: 128px;
 }
@@ -89,8 +87,8 @@ body {
 }
 
 #phone-slot {
-  width: calc((var(--phone-w) + 2 * var(--phone-bezel)) * var(--phone-scale));
-  height: calc((var(--phone-h) + 2 * var(--phone-bezel)) * var(--phone-scale));
+  width: calc(var(--phone-w) * var(--phone-scale));
+  height: calc(var(--phone-h) * var(--phone-scale));
   display: grid;
   place-items: center;
 }
@@ -151,30 +149,11 @@ body {
   width: var(--phone-w);
   height: var(--phone-h);
   overflow: hidden;
-  border-radius: var(--phone-radius);
   background: #e07830 var(--art-courtyard) center / cover no-repeat;
   cursor: none;
   container-type: size;
   container-name: phone;
   transform: scale(var(--phone-scale));
-  box-shadow:
-    0 0 0 var(--phone-bezel) #15181f,
-    0 0 0 calc(var(--phone-bezel) + 1px) #3a3f4a,
-    0 28px 64px rgba(0, 0, 0, 0.55);
-}
-
-#app::before {
-  content: "";
-  position: absolute;
-  top: 11px;
-  left: 50%;
-  width: 126px;
-  height: 37px;
-  transform: translateX(-50%);
-  background: #050608;
-  border-radius: 20px;
-  z-index: 80;
-  pointer-events: none;
 }
 
 #game-canvas {
