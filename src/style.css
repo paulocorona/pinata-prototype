@@ -264,17 +264,18 @@ body {
 }
 
 #ui-root .aim-joystick {
-  --stick-size: 176px;
-  --knob-size: 100px;
+  --stick-size: 106px;
+  --knob-size: 60px;
   position: absolute;
-  left: 50%;
+  left: 0;
+  right: 0;
   bottom: max(20px, calc(var(--safe-bottom) + 8px));
   z-index: 20;
-  width: 220px;
-  height: 220px;
+  width: 132px;
+  height: 132px;
+  margin-inline: auto;
   display: grid;
   place-items: center;
-  transform: translateX(-50%);
   touch-action: none;
   cursor: grab;
   -webkit-user-select: none;
@@ -299,6 +300,8 @@ body {
   pointer-events: none;
   user-select: none;
   -webkit-user-drag: none;
+  filter: none;
+  -webkit-filter: none;
 }
 
 .aim-joystick-bg {
@@ -307,7 +310,6 @@ body {
   width: 100%;
   height: 100%;
   object-fit: contain;
-  filter: drop-shadow(0 8px 12px rgba(12, 16, 28, 0.35));
 }
 
 .aim-joystick-knob {
@@ -320,7 +322,6 @@ body {
   object-fit: contain;
   transform: translate(0, 0);
   transition: transform 140ms ease-out;
-  filter: drop-shadow(0 5px 6px rgba(12, 16, 28, 0.32));
 }
 
 #ui-root .aim-joystick.is-held .aim-joystick-knob {
