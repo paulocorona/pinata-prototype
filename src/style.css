@@ -57,8 +57,8 @@
   --phone-w: 393px;
   --phone-h: 852px;
   --phone-scale: 1;
-  --safe-top: 16px;
-  --safe-bottom: 16px;
+  --safe-top: max(16px, env(safe-area-inset-top, 0px));
+  --safe-bottom: max(16px, env(safe-area-inset-bottom, 0px));
   /* Square skill-tree cells so square nodes sit without overlap. */
   --skill-tree-cell: 128px;
 }
@@ -79,6 +79,8 @@ body {
   color: var(--paper);
   cursor: default;
   user-select: none;
+  overscroll-behavior: none;
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
@@ -156,6 +158,31 @@ body {
   transform: scale(var(--phone-scale));
 }
 
+@media (hover: none) and (pointer: coarse) {
+  html,
+  body {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    height: 100svh;
+  }
+
+  #phone-slot {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    height: 100svh;
+  }
+
+  #app {
+    width: 100%;
+    height: 100%;
+    transform: none;
+  }
+}
+
 #game-canvas {
   position: absolute;
   inset: 0;
@@ -163,6 +190,7 @@ body {
   width: 100%;
   height: 100%;
   z-index: 0;
+  touch-action: none;
 }
 
 #ui-root {
@@ -175,6 +203,7 @@ body {
 #ui-root .interactive {
   pointer-events: auto;
   cursor: pointer;
+  touch-action: manipulation;
 }
 
 #reticle {
@@ -595,6 +624,7 @@ body {
   width: 100%;
   max-height: 100%;
   overflow: auto;
+  touch-action: pan-y;
   background: linear-gradient(180deg, rgba(40, 28, 48, 0.95), rgba(20, 28, 40, 0.96));
   border: 1px solid rgba(255, 248, 239, 0.14);
   border-radius: 18px;
@@ -2019,6 +2049,7 @@ body {
   align-items: center;
   justify-content: center;
   gap: 0;
+  overflow: hidden;
   background:
     linear-gradient(
       180deg,
@@ -2037,6 +2068,7 @@ body {
   justify-content: center;
   width: 99%;
   min-height: 0;
+  max-height: 100%;
   transform: translateY(0);
 }
 
@@ -2045,10 +2077,10 @@ body {
   z-index: 0;
   width: 100%;
   height: auto;
-  max-height: 100%;
+  max-height: min(46cqh, 100%);
   object-fit: contain;
   pointer-events: none;
-  transform: translateY(32px);
+  transform: translateY(clamp(8px, 4cqh, 32px));
   filter:
     drop-shadow(0 0 1px rgba(0, 0, 0, 0.85))
     drop-shadow(0 4px 6px rgba(0, 0, 0, 0.55))
@@ -2063,7 +2095,7 @@ body {
   align-items: center;
   gap: 10px;
   width: 100%;
-  margin-top: 28px;
+  margin-top: clamp(8px, 3cqh, 28px);
 }
 
 .overlay-boot.is-behind-settings .boot-actions {

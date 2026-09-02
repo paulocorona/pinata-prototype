@@ -1,13 +1,31 @@
-/** iPhone 15 CSS viewport (points). */
+/** iPhone 15 CSS viewport (points). Desktop letterbox target. */
 export const PHONE_WIDTH = 393;
 export const PHONE_HEIGHT = 852;
 
-function isHandheld(): boolean {
-  return window.matchMedia("(hover: none) and (pointer: coarse)").matches;
+const HANDHELD_MQ = "(hover: none) and (pointer: coarse)";
+
+export function isHandheld(): boolean {
+  return window.matchMedia(HANDHELD_MQ).matches;
 }
 
 function isLandscape(): boolean {
   return window.matchMedia("(orientation: landscape)").matches;
+}
+
+function viewportRect(): { width: number; height: number; left: number; top: number } {
+  const vv = window.visualViewport;
+  if (vv) {
+    return { width: vv.width, height: vv.height, left: vv.offsetLeft, top: vv.offsetTop };
+  }
+  return { width: window.innerWidth, height: window.innerHeight, left: 0, top: 0 };
+}
+
+/** Fire when the visible area moves or resizes (including iOS Safari chrome). */
+export function onViewportChange(cb: () => void): void {
+  window.addEventListener("resize", cb);
+  window.addEventListener("orientationchange", cb);
+  window.visualViewport?.addEventListener("resize", cb);
+  window.visualViewport?.addEventListener("scroll", cb);
 }
 
 type LockableOrientation = ScreenOrientation & {
@@ -45,34 +63,53 @@ export function installPortraitLock(gate: HTMLElement): void {
     once: true,
   });
 
-  window.addEventListener("resize", syncGate);
-  window.addEventListener("orientationchange", () => {
-    void tryLockPortrait();
-    syncGate();
-  });
+  onViewportChange(syncGate);
   window.screen.orientation?.addEventListener("change", () => {
     void tryLockPortrait();
     syncGate();
   });
-  window.visualViewport?.addEventListener("resize", syncGate);
   syncGate();
 }
 
 export function phoneScale(): number {
+  const { width, height } = viewportRect();
   const margin = 24;
-  return Math.min(
-    (window.innerWidth - margin) / PHONE_WIDTH,
-    (window.innerHeight - margin) / PHONE_HEIGHT,
-  );
+  return Math.min((width - margin) / PHONE_WIDTH, (height - margin) / PHONE_HEIGHT);
 }
 
-/** Size the letterboxed phone slot and scale the screen to fit the window. */
+function clearHandheldSlot(slot: HTMLElement): void {
+  slot.style.removeProperty("position");
+  slot.style.removeProperty("left");
+  slot.style.removeProperty("top");
+  slot.style.removeProperty("width");
+  slot.style.removeProperty("height");
+}
+
+/**
+ * Desktop: letterbox the 393×852 frame in the window.
+ * Handheld: fill the visual viewport (Safari chrome, notches, URL bar).
+ */
 export function fitPhoneFrame(slot: HTMLElement): void {
   const apply = () => {
+    const handheld = isHandheld();
+    document.documentElement.classList.toggle("is-handheld", handheld);
+    if (handheld) {
+      const { width, height, left, top } = viewportRect();
+      slot.style.position = "fixed";
+      slot.style.left = `${left}px`;
+      slot.style.top = `${top}px`;
+      slot.style.width = `${Math.max(1, width)}px`;
+      slot.style.height = `${Math.max(1, height)}px`;
+      slot.style.setProperty("--phone-scale", "1");
+      return;
+    }
+    clearHandheldSlot(slot);
     slot.style.setProperty("--phone-scale", String(phoneScale()));
   };
+
   apply();
-  window.addEventListener("resize", apply);
+  onViewportChange(apply);
+  window.matchMedia(HANDHELD_MQ).addEventListener("change", apply);
 }
 
 /** Convert a viewport client point into an element's local CSS pixels. */

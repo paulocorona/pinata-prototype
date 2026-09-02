@@ -6,7 +6,7 @@ import { PINATA_TYPES, THIEF, isThiefPinata } from "./pinataTypes";
 import { pickSpawnPinataType, type PinataUnlockDef } from "./unlocks";
 import { CameraRig } from "../world/CameraRig";
 import { Arena, PLAY_Z, WALL_Z } from "../world/Arena";
-import { localPointFromClient } from "../deviceFrame";
+import { localPointFromClient, onViewportChange } from "../deviceFrame";
 import {
   PinataFactory,
   PINATA_DEPTH_WORLD,
@@ -245,7 +245,7 @@ export class Game {
   }
 
   private bindInput(): void {
-    window.addEventListener("resize", () => this.onResize());
+    onViewportChange(() => this.onResize());
     window.addEventListener("pointermove", (e) => {
       const pt = localPointFromClient(this.canvas, e.clientX, e.clientY);
       this.pointer.x = pt.x;
