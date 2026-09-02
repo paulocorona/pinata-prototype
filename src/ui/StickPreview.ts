@@ -11,7 +11,6 @@ export class StickPreview {
   private camera: THREE.PerspectiveCamera | null = null;
   private spin: THREE.Group | null = null;
   private material: THREE.MeshStandardMaterial | null = null;
-  private envMap: THREE.Texture | null = null;
   private raf = 0;
   private lastTime = 0;
   private disposed = false;
@@ -24,7 +23,6 @@ export class StickPreview {
     const { renderer, envMap } = acquirePreviewRenderer();
     this.ownsRenderer = true;
     this.renderer = renderer;
-    this.envMap = envMap;
     attachPreviewCanvas(host);
 
     const scene = new THREE.Scene();
@@ -98,7 +96,6 @@ export class StickPreview {
     this.camera = null;
     this.material?.dispose();
     this.material = null;
-    this.envMap = null;
     if (this.ownsRenderer) {
       releasePreviewRenderer();
       this.ownsRenderer = false;

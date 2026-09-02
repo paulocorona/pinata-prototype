@@ -275,7 +275,6 @@ export class GameState {
     this.orderDueInRounds = 0;
     this.ordersAssigned = false;
     this.firstKidWarningPending = false;
-    this.pendingOrderReveal = false;
     this.nextOrderAwaitingRound = false;
     this.finalOrderPaid = false;
     this.upgrades = emptyUpgrades();
@@ -1194,14 +1193,12 @@ export class GameState {
     if (this.finalOrderPaid) return false;
     if (this.orderIndex >= FIESTA_ORDERS.length - 1) {
       this.finalOrderPaid = true;
-      this.pendingOrderReveal = false;
       this.nextOrderAwaitingRound = false;
       return true;
     }
     this.orderIndex += 1;
     this.orderContributed = 0;
     this.orderDueInRounds = this.getOrder().dueInRounds;
-    this.pendingOrderReveal = true;
     this.nextOrderAwaitingRound = false;
     return true;
   }
@@ -1213,7 +1210,6 @@ export class GameState {
   tryAdvanceRound(): boolean {
     if (!this.advanceOrder()) return false;
     this.round += 1;
-    this.pendingOrderReveal = false;
     return true;
   }
 
