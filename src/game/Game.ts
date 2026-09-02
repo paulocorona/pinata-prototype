@@ -561,7 +561,7 @@ export class Game {
     this.candyBalance.show();
     this.roundEnd.show(this.state, {
       onUpgrades: () => this.afterRoundEnd(),
-      onOrders: () => this.openOrderScreen({ keepRoundEnd: true }),
+      onOrders: () => this.openOrderScreen({ hideHud: true }),
       onContinue: () => this.openDueOrderOrContinue(),
     });
   }
@@ -623,79 +623,62 @@ export class Game {
     this.startRound();
   }
 
-  private openOrderScreen(opts?: { keepRoundEnd?: boolean; hideHud?: boolean }): void {
-    if (opts?.hideHud) {
+  private openOrderScreen(opts?: { hideHud?: boolean }): void {
+    const returnToHub = !!opts?.hideHud;
+    if (returnToHub) {
       this.roundEnd.hide();
       this.candyBalance.hide();
     } else {
-      this.candyBalance.place(opts?.keepRoundEnd ? "top" : "bottom");
+      this.candyBalance.place("bottom");
       this.candyBalance.show();
       this.syncCandyUi();
-      if (!opts?.keepRoundEnd) this.roundEnd.hide();
+      this.roundEnd.hide();
     }
     this.state.nextOrderAwaitingRound = false;
-    this.orderPrep.show(
-      this.state,
-      {
-        onFillOrder: () => {
-          const first = this.state.isFirstOrder();
-          const needed = this.state.orderRemaining();
-          if (this.state.contributeToOrder(needed) <= 0 || !this.state.orderFulfilled()) return;
+    this.orderPrep.show(this.state, {
+      onFillOrder: () => {
+        const needed = this.state.orderRemaining();
+        if (this.state.contributeToOrder(needed) <= 0 || !this.state.orderFulfilled()) return;
+        this.audio.ui();
+        this.syncCandyUi();
+        this.orderPrep.playPaidCelebration(() => {
+          this.afterPayingOrder();
+        });
+      },
+      onContribute: (all: boolean) => {
+        const amount = all ? this.state.candy : Math.floor(this.state.candy / 2);
+        if (this.state.contributeToOrder(amount) > 0) {
           this.audio.ui();
           this.syncCandyUi();
-          this.orderPrep.playPaidCelebration(() => {
-            if (first) {
-              if (!this.state.advanceOrder()) return;
-              this.presentRoundEnd();
-              return;
-            }
-            this.afterPayingOrder();
-          });
-        },
-        onContribute: (all: boolean) => {
-          const amount = all ? this.state.candy : Math.floor(this.state.candy / 2);
-          if (this.state.contributeToOrder(amount) > 0) {
-            this.audio.ui();
-            this.syncCandyUi();
-          }
-        },
-        onStart: () => {
-          this.afterPayingOrder();
-        },
-        onSkip: () => {
-          this.audio.ui();
-          if (this.state.isUnpaidDueOrder()) {
-            this.showLose();
-            return;
-          }
-          this.state.endRunEarly();
-          this.candyBalance.hide();
-          this.summary.show(this.state, () => this.restart());
-        },
-        onContinue: () => {
-          this.audio.ui();
-          if (this.state.isUnpaidDueOrder()) {
-            this.showLose();
-            return;
-          }
-          this.presentRoundEnd();
-        },
+        }
       },
-      { popup: !!opts?.keepRoundEnd },
-    );
+      onStart: () => {
+        this.afterPayingOrder();
+      },
+      onSkip: () => {
+        this.audio.ui();
+        if (this.state.isUnpaidDueOrder()) {
+          this.showLose();
+          return;
+        }
+        this.state.endRunEarly();
+        this.candyBalance.hide();
+        this.summary.show(this.state, () => this.restart());
+      },
+      onContinue: () => {
+        this.audio.ui();
+        if (this.state.isUnpaidDueOrder()) {
+          this.showLose();
+          return;
+        }
+        this.presentRoundEnd();
+      },
+    });
   }
 
   private afterPayingOrder(): void {
-    if (this.state.hasPaidFinalOrder()) {
-      this.openUpgradeScreen();
-      return;
-    }
-    if (!this.state.advanceOrder()) return;
-    if (this.state.hasPaidFinalOrder()) {
-      this.openUpgradeScreen();
-      return;
-    }
-    this.continueToNextRound();
+    if (!this.state.hasPaidFinalOrder() && !this.state.advanceOrder()) return;
+    this.presentRoundEnd();
   }
 
   private showLose(): void {

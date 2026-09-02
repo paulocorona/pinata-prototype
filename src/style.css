@@ -1129,14 +1129,6 @@ body {
   overflow: hidden;
 }
 
-.overlay.overlay-order-popup {
-  z-index: 50;
-  background: rgba(6, 8, 14, 0.88);
-  align-items: center;
-  justify-content: center;
-  padding: var(--safe-top) 18px 72px;
-}
-
 .panel-order {
   width: min(100%, 372px);
   max-height: 100%;
@@ -1150,28 +1142,6 @@ body {
   flex-direction: column;
   align-items: stretch;
   gap: 0;
-}
-
-.order-story {
-  text-align: center;
-  margin: 0 16px 8px;
-  pointer-events: none;
-}
-
-.order-story-name {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: clamp(18px, 5.6cqw, 22px);
-  line-height: 1.1;
-  color: #ffd166;
-  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.35);
-}
-
-.order-story-flavor {
-  margin: 4px 0 0;
-  font-size: 13px;
-  line-height: 1.35;
-  color: rgba(255, 248, 239, 0.82);
 }
 
 .order-poster {
@@ -1198,8 +1168,7 @@ body {
 }
 
 .overlay-order.is-paid .order-poster-actions,
-.overlay-order.is-paid .order-actions,
-.overlay-order.is-paid .order-story {
+.overlay-order.is-paid .order-actions {
   visibility: hidden;
   pointer-events: none;
 }

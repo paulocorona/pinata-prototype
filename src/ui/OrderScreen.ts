@@ -3,14 +3,6 @@ import { FIESTA_ORDERS } from "../game/balance";
 import { assetUrl } from "../util/assetUrl";
 import { formatNumber } from "../util/math";
 
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
 const ORDER_PAID_HOLD_MS = 2000;
 const ORDER_COMPLETE_ART = "art/T_OrderComplete.png";
 const CONFETTI_COLORS = ["#f419a1", "#f38605", "#fddd04", "#40e50e", "#03aafc", "#8c0ef7", "#ff4d8a", "#fff8ef"];
@@ -47,7 +39,6 @@ export class OrderScreen {
       onSkip: () => void;
       onContinue: () => void;
     },
-    opts?: { popup?: boolean },
   ): void {
     this.clearPaidHold();
     this.state = state;
@@ -56,7 +47,6 @@ export class OrderScreen {
     this.onStart = handlers.onStart;
     this.onSkip = handlers.onSkip;
     this.onContinue = handlers.onContinue;
-    this.el.classList.toggle("overlay-order-popup", !!opts?.popup);
     this.render();
     this.el.classList.remove("hidden");
   }
@@ -106,7 +96,6 @@ export class OrderScreen {
     const broke = !state.canFillOrder();
     this.el.innerHTML = `
       <div class="panel panel-order">
-        ${this.storyHtml(state)}
         ${this.posterHtml(state)}
         <div class="order-poster-actions">
           <button class="btn btn-fill-order interactive" data-fill>
@@ -131,7 +120,6 @@ export class OrderScreen {
   private renderUpcomingOrder(state: GameState): void {
     this.el.innerHTML = `
       <div class="panel panel-order">
-        ${this.storyHtml(state)}
         ${this.posterHtml(state)}
         <div class="order-poster-actions">
           <button class="btn btn-fill-order interactive" data-fill>
@@ -164,7 +152,6 @@ export class OrderScreen {
 
     this.el.innerHTML = `
       <div class="panel panel-order">
-        ${this.storyHtml(state)}
         ${this.posterHtml(state)}
         ${contribute}
         <div class="order-poster-actions">
@@ -192,17 +179,6 @@ export class OrderScreen {
       this.hide();
       this.onSkip?.();
     });
-  }
-
-  private storyHtml(state: GameState): string {
-    if (state.isFirstOrder()) return "";
-    const order = state.getOrder();
-    return `
-      <div class="order-story">
-        <div class="order-story-name">${escapeHtml(order.name)}</div>
-        <p class="order-story-flavor">${escapeHtml(order.flavor)}</p>
-      </div>
-    `;
   }
 
   private posterHtml(state: GameState): string {
@@ -305,6 +281,5 @@ export class OrderScreen {
     this.el.querySelector(".order-not-enough")?.remove();
     this.clearPaidHold();
     this.el.classList.add("hidden");
-    this.el.classList.remove("overlay-order-popup");
   }
 }

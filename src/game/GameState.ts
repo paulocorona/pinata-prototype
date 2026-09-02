@@ -1198,17 +1198,11 @@ export class GameState {
       this.nextOrderAwaitingRound = false;
       return true;
     }
-    const fromFirst = this.orderIndex === 0;
     this.orderIndex += 1;
     this.orderContributed = 0;
     this.orderDueInRounds = this.getOrder().dueInRounds;
-    if (fromFirst) {
-      this.pendingOrderReveal = true;
-      this.nextOrderAwaitingRound = false;
-    } else {
-      this.pendingOrderReveal = false;
-      this.nextOrderAwaitingRound = true;
-    }
+    this.pendingOrderReveal = true;
+    this.nextOrderAwaitingRound = false;
     return true;
   }
 
