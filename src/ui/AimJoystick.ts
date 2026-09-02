@@ -1,7 +1,6 @@
 import { isHandheld, localPointFromClient } from "../deviceFrame";
-
-/** Finger travel on the stick is scaled so a short swipe covers most of the arena. */
-const AIM_GAIN = 4.6;
+import { getAimGain, getAimMode } from "../game/aimSettings";
+import { assetUrl } from "../util/assetUrl";
 
 export class AimJoystick {
   readonly el: HTMLElement;
@@ -24,8 +23,8 @@ export class AimJoystick {
     this.el.setAttribute("aria-label", "Aim");
     this.el.innerHTML = `
       <div class="aim-joystick-base">
-        <span class="aim-joystick-ring" aria-hidden="true"></span>
-        <span class="aim-joystick-knob" data-knob aria-hidden="true"></span>
+        <img class="aim-joystick-bg" src="${assetUrl("art/T_Joystick_BG.png")}" alt="" draggable="false" aria-hidden="true" />
+        <img class="aim-joystick-knob" data-knob src="${assetUrl("art/T_Joystick.png")}" alt="" draggable="false" aria-hidden="true" />
       </div>
     `;
     root.appendChild(this.el);
@@ -35,7 +34,7 @@ export class AimJoystick {
   }
 
   show(): void {
-    if (!isHandheld()) {
+    if (!isHandheld() || getAimMode() !== "joystick") {
       this.hide();
       return;
     }
@@ -75,7 +74,8 @@ export class AimJoystick {
       this.lastClientX = ev.clientX;
       this.lastClientY = ev.clientY;
       this.setKnob(ev.clientX, ev.clientY);
-      this.onNudge?.((next.x - prev.x) * AIM_GAIN, (next.y - prev.y) * AIM_GAIN);
+      const gain = getAimGain();
+      this.onNudge?.((next.x - prev.x) * gain, (next.y - prev.y) * gain);
     });
 
     const end = (ev: PointerEvent) => {

@@ -264,14 +264,14 @@ body {
 }
 
 #ui-root .aim-joystick {
-  --stick-size: 156px;
-  --knob-size: 64px;
+  --stick-size: 176px;
+  --knob-size: 100px;
   position: absolute;
   left: 50%;
   bottom: max(20px, calc(var(--safe-bottom) + 8px));
   z-index: 20;
-  width: 196px;
-  height: 196px;
+  width: 220px;
+  height: 220px;
   display: grid;
   place-items: center;
   transform: translateX(-50%);
@@ -290,24 +290,24 @@ body {
   position: relative;
   width: var(--stick-size);
   height: var(--stick-size);
-  border-radius: 50%;
-  background:
-    radial-gradient(circle at 50% 42%, rgba(255, 248, 239, 0.2), rgba(26, 36, 51, 0.42) 70%);
-  border: 3px solid rgba(255, 248, 239, 0.78);
-  box-shadow:
-    0 10px 28px rgba(12, 16, 28, 0.4),
-    0 0 0 4px rgba(26, 36, 51, 0.55),
-    inset 0 1px 0 rgba(255, 248, 239, 0.3),
-    inset 0 -12px 20px rgba(12, 16, 28, 0.32);
   pointer-events: none;
 }
 
-.aim-joystick-ring {
+.aim-joystick-bg,
+.aim-joystick-knob {
+  display: block;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.aim-joystick-bg {
   position: absolute;
-  inset: 18px;
-  border-radius: 50%;
-  border: 2px solid rgba(255, 248, 239, 0.28);
-  box-sizing: border-box;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 8px 12px rgba(12, 16, 28, 0.35));
 }
 
 .aim-joystick-knob {
@@ -317,30 +317,10 @@ body {
   width: var(--knob-size);
   height: var(--knob-size);
   margin: calc(var(--knob-size) / -2) 0 0 calc(var(--knob-size) / -2);
-  border-radius: 50%;
-  background:
-    radial-gradient(circle at 35% 30%, #fff8ef 0%, #ffe08a 42%, #ff9f1c 100%);
-  border: 3px solid var(--ink);
-  box-shadow:
-    0 6px 0 #c9185a,
-    0 10px 16px rgba(26, 12, 20, 0.35);
-  box-sizing: border-box;
+  object-fit: contain;
   transform: translate(0, 0);
   transition: transform 140ms ease-out;
-}
-
-.aim-joystick-knob::after {
-  content: "";
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 10px;
-  height: 10px;
-  margin: -5px 0 0 -5px;
-  border-radius: 50%;
-  background: var(--paper);
-  border: 2px solid var(--ink);
-  box-sizing: border-box;
+  filter: drop-shadow(0 5px 6px rgba(12, 16, 28, 0.32));
 }
 
 #ui-root .aim-joystick.is-held .aim-joystick-knob {
@@ -1719,6 +1699,11 @@ html:not(.is-handheld) .aim-joystick {
   cursor: grab;
 }
 
+#ui-root .skill-tree.interactive,
+#ui-root .skill-tree .interactive {
+  touch-action: none;
+}
+
 .panel-upgrades > .btn {
   width: 100%;
   flex-shrink: 0;
@@ -1730,7 +1715,8 @@ html:not(.is-handheld) .aim-joystick {
   cursor: grabbing;
 }
 
-.skill-tree.is-dragging .skill-node {
+.skill-tree.is-dragging .skill-node,
+.skill-tree.is-pinching .skill-node {
   pointer-events: none;
 }
 
@@ -2384,6 +2370,10 @@ html:not(.is-handheld) .aim-joystick {
   margin-bottom: 16px;
 }
 
+.panel-settings .settings-row + .sub {
+  margin-top: 4px;
+}
+
 .settings-row {
   display: flex;
   flex-direction: column;
@@ -2405,9 +2395,51 @@ html:not(.is-handheld) .aim-joystick {
 
 .settings-row-head [data-master-value],
 .settings-row-head [data-sfx-value],
-.settings-row-head [data-music-value] {
+.settings-row-head [data-music-value],
+.settings-row-head [data-aim-value] {
   font-variant-numeric: tabular-nums;
   color: #ffd166;
+}
+
+.settings-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 22px;
+}
+
+.settings-check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #fff8ef;
+  cursor: pointer;
+}
+
+.settings-check input {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 22px;
+  height: 22px;
+  margin: 0;
+  flex: 0 0 auto;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 248, 239, 0.35);
+  background: rgba(255, 248, 239, 0.1);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.28);
+  cursor: pointer;
+}
+
+.settings-check input:checked {
+  border-color: rgba(42, 18, 8, 0.35);
+  box-shadow: 0 2px 0 #d45c00, 0 4px 10px rgba(0, 0, 0, 0.28);
+  background:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path fill='none' stroke='%232a1208' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round' d='M3.2 8.2 6.4 11.4 12.8 4.6'/></svg>")
+      center / 14px 14px no-repeat,
+    linear-gradient(180deg, #ffd56a, #ff9d1a 52%, #ff6a00);
 }
 
 .settings-slider {

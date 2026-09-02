@@ -7,6 +7,7 @@ import { pickSpawnPinataType, type PinataUnlockDef } from "./unlocks";
 import { CameraRig } from "../world/CameraRig";
 import { Arena, PLAY_Z, WALL_Z } from "../world/Arena";
 import { isHandheld, localPointFromClient, onViewportChange } from "../deviceFrame";
+import { getAimMode } from "./aimSettings";
 import {
   PinataFactory,
   PINATA_DEPTH_WORLD,
@@ -271,7 +272,7 @@ export class Game {
   private bindInput(): void {
     onViewportChange(() => this.onResize());
     window.addEventListener("pointermove", (e) => {
-      if (isHandheld()) return;
+      if (isHandheld() && getAimMode() === "joystick") return;
       const pt = localPointFromClient(this.canvas, e.clientX, e.clientY);
       this.applyAim(pt.x, pt.y);
     });

@@ -272,6 +272,96 @@ export class UpgradeScreen {
     let startY = 0;
     let originX = 0;
     let originY = 0;
+    let pinching = false;
+    let pinchStartDist = 0;
+    let pinchStartZoom = 1;
+
+    const touchPair = (touches: TouchList): { a: Touch; b: Touch } | null => {
+      const a = touches.item(0);
+      const b = touches.item(1);
+      return a && b ? { a, b } : null;
+    };
+
+    const beginPinch = (a: Touch, b: Touch): void => {
+      pinching = true;
+      dragging = false;
+      pointerId = null;
+      pinchStartDist = Math.max(1, Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY));
+      pinchStartZoom = this.zoom;
+      this.suppressClick = true;
+      this.hideTooltip();
+      viewport.classList.add("is-pinching");
+      viewport.classList.remove("is-dragging");
+    };
+
+    const applyPinch = (a: Touch, b: Touch): void => {
+      const dist = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+      this.setZoomAt(
+        (a.clientX + b.clientX) / 2,
+        (a.clientY + b.clientY) / 2,
+        pinchStartZoom * (dist / pinchStartDist),
+      );
+    };
+
+    const endPinch = (): void => {
+      if (!pinching) return;
+      pinching = false;
+      pinchStartDist = 0;
+      viewport.classList.remove("is-pinching");
+      window.setTimeout(() => {
+        this.suppressClick = false;
+      }, 0);
+    };
+
+    viewport.addEventListener(
+      "touchstart",
+      (ev) => {
+        const pair = touchPair(ev.touches);
+        if (!pair) return;
+        ev.preventDefault();
+        beginPinch(pair.a, pair.b);
+      },
+      { passive: false },
+    );
+
+    viewport.addEventListener(
+      "touchmove",
+      (ev) => {
+        const pair = touchPair(ev.touches);
+        if (!pair) return;
+        ev.preventDefault();
+        if (!pinching) beginPinch(pair.a, pair.b);
+        applyPinch(pair.a, pair.b);
+      },
+      { passive: false },
+    );
+
+    const onTouchEnd = (ev: TouchEvent): void => {
+      if (ev.touches.length >= 2) {
+        const pair = touchPair(ev.touches);
+        if (pair) beginPinch(pair.a, pair.b);
+        return;
+      }
+      endPinch();
+    };
+    viewport.addEventListener("touchend", onTouchEnd);
+    viewport.addEventListener("touchcancel", onTouchEnd);
+
+    viewport.addEventListener(
+      "gesturestart",
+      (ev) => ev.preventDefault(),
+      { passive: false },
+    );
+    viewport.addEventListener(
+      "gesturechange",
+      (ev) => ev.preventDefault(),
+      { passive: false },
+    );
+    viewport.addEventListener(
+      "gestureend",
+      (ev) => ev.preventDefault(),
+      { passive: false },
+    );
 
     const endDrag = (ev: PointerEvent): void => {
       if (pointerId === null || ev.pointerId !== pointerId) return;
@@ -292,7 +382,7 @@ export class UpgradeScreen {
     };
 
     viewport.addEventListener("pointerdown", (ev) => {
-      if (ev.button !== 0) return;
+      if (ev.button !== 0 || pinching) return;
       this.suppressClick = false;
       pointerId = ev.pointerId;
       dragging = false;
@@ -304,6 +394,10 @@ export class UpgradeScreen {
     });
 
     viewport.addEventListener("pointermove", (ev) => {
+      if (pinching) {
+        ev.preventDefault();
+        return;
+      }
       if (pointerId === null || ev.pointerId !== pointerId) return;
       const dx = ev.clientX - startX;
       const dy = ev.clientY - startY;
@@ -334,7 +428,7 @@ export class UpgradeScreen {
         ev.preventDefault();
         ev.stopPropagation();
         this.hideTooltip();
-        this.zoomAt(ev.clientX, ev.clientY, ev.deltaY);
+        this.setZoomAt(ev.clientX, ev.clientY, this.zoom * Math.exp(-ev.deltaY * 0.0018));
       },
       { passive: false },
     );
@@ -402,7 +496,8 @@ export class UpgradeScreen {
     return this.el.querySelector("[data-skill-tooltip]");
   }
 
-  private zoomAt(clientX: number, clientY: number, deltaY: number): void {
+  /** Zoom around a screen point so that map location stays under the fingers / cursor. */
+  private setZoomAt(clientX: number, clientY: number, nextZoom: number): void {
     const viewport = this.treeViewport();
     const map = this.treeMap();
     if (!viewport || !map) return;
@@ -412,13 +507,7 @@ export class UpgradeScreen {
     const cursorY = clientY - rect.top;
     const mapX = (cursorX - this.panX) / this.zoom;
     const mapY = (cursorY - this.panY) / this.zoom;
-    const next = Math.min(
-      ZOOM_MAX,
-      Math.max(ZOOM_MIN, this.zoom * Math.exp(-deltaY * 0.0018)),
-    );
-    if (next === this.zoom) return;
-
-    this.zoom = next;
+    this.zoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, nextZoom));
     this.panX = cursorX - mapX * this.zoom;
     this.panY = cursorY - mapY * this.zoom;
     this.clampPan();
