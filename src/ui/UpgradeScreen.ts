@@ -34,6 +34,37 @@ function escapeHtml(value: string): string {
     .replace(/"/g, "&quot;");
 }
 
+const STAT_CHANGE_RE = /\s*\(([^()\n]*→[^()\n]*)\)\.?/g;
+
+function upgradeTooltipHtml(text: string): string {
+  const [desc = "", ...extras] = text.split("\n\n");
+  const parts: string[] = [];
+  let last = 0;
+  STAT_CHANGE_RE.lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = STAT_CHANGE_RE.exec(desc)) !== null) {
+    const before = desc.slice(last, match.index).replace(/\s+/g, " ").trim();
+    if (before) {
+      parts.push(`<span class="skill-node-tooltip-body">${escapeHtml(before)}</span>`);
+    }
+    parts.push(
+      `<span class="skill-node-tooltip-stats">${escapeHtml(match[1].trim())}</span>`,
+    );
+    last = match.index + match[0].length;
+  }
+  const after = desc.slice(last).replace(/\s+/g, " ").trim();
+  if (after) {
+    parts.push(`<span class="skill-node-tooltip-body">${escapeHtml(after)}</span>`);
+  }
+  for (const extra of extras) {
+    const trimmed = extra.trim();
+    if (trimmed) {
+      parts.push(`<span class="skill-node-tooltip-extra">${escapeHtml(trimmed)}</span>`);
+    }
+  }
+  return parts.join("");
+}
+
 export class UpgradeScreen {
   readonly el: HTMLElement;
   private state: GameState | null = null;
@@ -148,12 +179,9 @@ export class UpgradeScreen {
 
         const priceHtml = maxed
           ? "Owned"
-          : `<img class="skill-node-candy" src="${assetUrl("art/T_CandyCoin.png")}" alt="" draggable="false" /><span>${escapeHtml(formatNumber(cost))}</span>`;
+          : `<img class="skill-node-candy" src="${assetUrl("art/T_CandyCoin.png")}" alt="" draggable="false" /><span class="skill-node-cost-amount">${escapeHtml(formatNumber(cost))}</span>`;
         const tipParts = [desc];
         if (!unlocked) tipParts.push(lockReason);
-        else if (!maxed && !can) {
-          tipParts.push(`Need ${formatNumber(cost! - state.candy)} more candy`);
-        }
         const tip = tipParts.join("\n\n");
         const name = upgradeDisplayName(u);
         const [title1, title2] = upgradeTitleLines(u);
@@ -188,7 +216,7 @@ export class UpgradeScreen {
             ${nodes}
           </div>
         </div>
-        <button class="btn btn-primary interactive" data-back>Continue</button>
+        <button class="btn btn-secondary interactive" data-back>Back</button>
       </div>
       <div class="skill-node-tooltip hidden" data-skill-tooltip role="tooltip"></div>
     `;
@@ -343,7 +371,7 @@ export class UpgradeScreen {
     const text = node.dataset.tip ?? "";
     if (!tooltip || !text) return;
     tooltip.style.visibility = "hidden";
-    tooltip.textContent = text;
+    tooltip.innerHTML = upgradeTooltipHtml(text);
     tooltip.classList.remove("hidden");
     this.placeTooltip(tooltip, node);
     tooltip.style.visibility = "";

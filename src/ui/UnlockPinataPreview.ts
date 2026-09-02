@@ -1,11 +1,11 @@
 import * as THREE from "three";
-import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { PINATA_TYPES, type PinataTypeId } from "../game/pinataTypes";
 import {
   loadPinataAssets,
   type PinataSkinId,
   type PinataTextureSet,
 } from "../world/pinataAssets";
+import { acquirePreviewRenderer, attachPreviewCanvas, releasePreviewRenderer } from "./previewRenderer";
 
 export function skinForUnlockType(typeId: string | undefined): PinataSkinId {
   if (typeId && typeId in PINATA_TYPES) {
@@ -131,34 +131,21 @@ export class UnlockPinataPreview {
   private fillMinY = -1;
   private fillMaxY = 1;
   private disposed = false;
+  private ownsRenderer = false;
 
   async mount(host: HTMLElement, opts: UnlockPinataPreviewOpts): Promise<void> {
     this.dispose();
     this.disposed = false;
 
-    const canvas = document.createElement("canvas");
-    canvas.setAttribute("aria-hidden", "true");
-    host.appendChild(canvas);
-
-    const renderer = new THREE.WebGLRenderer({
-      canvas,
-      antialias: true,
-      alpha: true,
-      powerPreference: "low-power",
-    });
-    renderer.setClearColor(0x000000, 0);
-    renderer.outputColorSpace = THREE.SRGBColorSpace;
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.05;
+    const { renderer, envMap } = acquirePreviewRenderer();
+    this.ownsRenderer = true;
     this.renderer = renderer;
+    this.envMap = envMap;
+    attachPreviewCanvas(host);
 
     const scene = new THREE.Scene();
     this.scene = scene;
-
-    const pmrem = new THREE.PMREMGenerator(renderer);
-    this.envMap = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
-    scene.environment = this.envMap;
-    pmrem.dispose();
+    scene.environment = envMap;
 
     scene.add(new THREE.HemisphereLight(0xfff0dd, 0x2a2030, 0.55));
     const key = new THREE.DirectionalLight(0xffe6b5, 1.15);
@@ -230,13 +217,12 @@ export class UnlockPinataPreview {
     this.camera = null;
     this.material?.dispose();
     this.material = null;
-    this.envMap?.dispose();
     this.envMap = null;
-    if (this.renderer) {
-      this.renderer.dispose();
-      this.renderer.domElement.remove();
-      this.renderer = null;
+    if (this.ownsRenderer) {
+      releasePreviewRenderer();
+      this.ownsRenderer = false;
     }
+    this.renderer = null;
   }
 
   private syncSize(host: HTMLElement): void {

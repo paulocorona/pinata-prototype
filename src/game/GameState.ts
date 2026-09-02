@@ -8,6 +8,7 @@ import {
   LOW_HP_CRITS,
   LUCKY_CRIT,
   ORDERS_UNLOCK_UPGRADES,
+  DEBUG_FREE_ORDERS,
   TANTRUM,
   UPGRADES,
   breakRespawnChanceFor,
@@ -193,8 +194,8 @@ export class GameState {
   orderDueInRounds = 0;
   /** Sticky: once the first order is assigned, the order track stays on for the run. */
   ordersAssigned = false;
-  /** Show the newly assigned scheduled order after the next upgrade screen. */
-  pendingOrderReveal = false;
+  /** Show the first-kid warning after the player buys their first upgrade. */
+  firstKidWarningPending = false;
   /** After paying an order, wait one smash round before presenting the next. */
   nextOrderAwaitingRound = false;
   /** True after the last Fiesta payment is paid — unlocks the finale upgrade tree. */
@@ -273,6 +274,7 @@ export class GameState {
     this.orderContributed = 0;
     this.orderDueInRounds = 0;
     this.ordersAssigned = false;
+    this.firstKidWarningPending = false;
     this.pendingOrderReveal = false;
     this.nextOrderAwaitingRound = false;
     this.finalOrderPaid = false;
@@ -822,12 +824,20 @@ export class GameState {
     return this.ordersAssigned;
   }
 
+  consumeFirstKidWarning(): boolean {
+    if (!this.firstKidWarningPending) return false;
+    this.firstKidWarningPending = false;
+    return true;
+  }
+
   /**
    * First payment appears once 2+ upgrades are owned and the bank has 20 candy.
    * If the player is short, keep playing until they can cover it.
    */
   isFirstOrderReadyToPresent(): boolean {
-    return !this.ordersAssigned && this.ordersUnlocked() && this.candy >= this.getOrder().target;
+    if (this.ordersAssigned) return false;
+    if (DEBUG_FREE_ORDERS) return true;
+    return this.ordersUnlocked() && this.candy >= this.getOrder().target;
   }
 
   /**
@@ -842,14 +852,9 @@ export class GameState {
     return true;
   }
 
-  /** Continue appears on Round Complete starting after round 2. */
-  hasContinueOnRoundEnd(): boolean {
-    return this.round >= 2;
-  }
-
   /**
    * After the first Fiesta payment is paid, Round Complete offers
-   * Upgrades / Next Order / Continue.
+   * Upgrades / Next Order / Next Round.
    */
   hasPaidFirstOrder(): boolean {
     return this.orderIndex > 0 || this.finalOrderPaid;
@@ -906,7 +911,7 @@ export class GameState {
   }
 
   canFillOrder(): boolean {
-    return this.candy >= this.orderRemaining();
+    return DEBUG_FREE_ORDERS || this.candy >= this.orderRemaining();
   }
 
   getOrder() {
@@ -948,7 +953,9 @@ export class GameState {
       if (this.candy < cost) return false;
       this.candy -= cost;
     }
+    const firstPurchase = this.totalUpgradeLevels() === 0;
     this.upgrades[id] += 1;
+    if (firstPurchase) this.firstKidWarningPending = true;
     if (id === "brightStart") this.brightStartPending = true;
     return true;
   }
@@ -1048,6 +1055,11 @@ export class GameState {
 
   contributeToOrder(amount: number): number {
     const remaining = this.orderRemaining();
+    if (remaining <= 0) return 0;
+    if (DEBUG_FREE_ORDERS) {
+      this.orderContributed += remaining;
+      return remaining;
+    }
     const spent = Math.min(amount, remaining, this.candy);
     this.candy -= spent;
     this.orderContributed += spent;

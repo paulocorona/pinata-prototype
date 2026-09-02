@@ -36,6 +36,7 @@ import { TicketShopScreen } from "../ui/TicketShopScreen";
 import { BootScreen, spawnCandyFloatText, spawnFloatText } from "../ui/BootScreen";
 import { ShopScreen } from "../ui/ShopScreen";
 import { SettingsScreen } from "../ui/SettingsScreen";
+import { StoryScreen, FIRST_KID_STORY } from "../ui/StoryScreen";
 import { CandyBalance } from "../ui/CandyBalance";
 import { rng } from "../util/rng";
 import { formatNumber } from "../util/math";
@@ -91,6 +92,7 @@ export class Game {
   private boot: BootScreen;
   private shop: ShopScreen;
   private settings: SettingsScreen;
+  private story: StoryScreen;
   private uiRoot: HTMLElement;
   private canvas: HTMLCanvasElement;
   private assetsReady: Promise<void>;
@@ -211,6 +213,7 @@ export class Game {
     this.boot = new BootScreen(uiRoot);
     this.shop = new ShopScreen(uiRoot);
     this.settings = new SettingsScreen(uiRoot);
+    this.story = new StoryScreen(uiRoot);
 
     this.bindInput();
     requestAnimationFrame(() => this.onResize());
@@ -503,6 +506,7 @@ export class Game {
     this.ticketShop.hide();
     this.shop.hide();
     this.settings.hide();
+    this.story.hide();
   }
 
   private finishRound(): void {
@@ -543,19 +547,23 @@ export class Game {
 
   private presentRoundEnd(): void {
     this.unlockPopup.hide();
+    this.upgrades.hide();
     this.syncCandyUi();
     const firstOrderReady =
       this.state.isFirstOrderReadyToPresent() && this.state.tryAssignOrders();
-    if (!firstOrderReady) this.candyBalance.show();
+    if (firstOrderReady) {
+      this.roundEnd.hide();
+      this.candyBalance.hide();
+      this.openOrderScreen({ hideHud: true });
+      return;
+    }
+    this.candyBalance.place("top");
+    this.candyBalance.show();
     this.roundEnd.show(this.state, {
       onUpgrades: () => this.afterRoundEnd(),
-      onOrders: () => {
-        this.roundEnd.hide();
-        this.openOrderScreen();
-      },
+      onOrders: () => this.openOrderScreen({ keepRoundEnd: true }),
       onContinue: () => this.openDueOrderOrContinue(),
     });
-    if (firstOrderReady) this.openOrderScreen({ keepRoundEnd: true });
   }
 
   private afterRoundEnd(): void {
@@ -568,6 +576,7 @@ export class Game {
     this.roundEnd.hide();
     this.orderPrep.hide();
     this.syncCandyUi();
+    this.candyBalance.place("bottom");
     this.candyBalance.show();
     this.upgrades.show(this.state, {
       onBuy: (id: UpgradeId) => {
@@ -577,20 +586,9 @@ export class Game {
         }
       },
       onBack: () => {
-        this.state.goBetweenRounds();
-        this.leaveUpgrades();
+        this.presentRoundEnd();
       },
     });
-  }
-
-  /** After upgrades: play on, or collect a payment that is already due. */
-  private leaveUpgrades(): void {
-    this.candyBalance.hide();
-    if (this.state.isUnpaidDueOrder()) {
-      this.openOrderScreen();
-      return;
-    }
-    this.continueToNextRound();
   }
 
   private openDueOrderOrContinue(): void {
@@ -603,6 +601,20 @@ export class Game {
   }
 
   private continueToNextRound(): void {
+    if (this.state.consumeFirstKidWarning()) {
+      this.roundEnd.hide();
+      this.upgrades.hide();
+      this.orderPrep.hide();
+      this.candyBalance.hide();
+      this.story.show({
+        lines: FIRST_KID_STORY,
+        doneHint: "Tap",
+        warn: true,
+        onDone: () => this.continueToNextRound(),
+        onUi: () => this.audio.ui(),
+      });
+      return;
+    }
     this.roundEnd.hide();
     this.upgrades.hide();
     this.orderPrep.hide();
@@ -611,10 +623,16 @@ export class Game {
     this.startRound();
   }
 
-  private openOrderScreen(opts?: { keepRoundEnd?: boolean }): void {
-    this.candyBalance.show();
-    this.syncCandyUi();
-    if (!opts?.keepRoundEnd) this.roundEnd.hide();
+  private openOrderScreen(opts?: { keepRoundEnd?: boolean; hideHud?: boolean }): void {
+    if (opts?.hideHud) {
+      this.roundEnd.hide();
+      this.candyBalance.hide();
+    } else {
+      this.candyBalance.place(opts?.keepRoundEnd ? "top" : "bottom");
+      this.candyBalance.show();
+      this.syncCandyUi();
+      if (!opts?.keepRoundEnd) this.roundEnd.hide();
+    }
     this.state.nextOrderAwaitingRound = false;
     this.orderPrep.show(
       this.state,
@@ -625,12 +643,14 @@ export class Game {
           if (this.state.contributeToOrder(needed) <= 0 || !this.state.orderFulfilled()) return;
           this.audio.ui();
           this.syncCandyUi();
-          if (first) {
-            if (!this.state.advanceOrder()) return;
-            this.openUpgradeScreen();
-            return;
-          }
-          this.afterPayingOrder();
+          this.orderPrep.playPaidCelebration(() => {
+            if (first) {
+              if (!this.state.advanceOrder()) return;
+              this.presentRoundEnd();
+              return;
+            }
+            this.afterPayingOrder();
+          });
         },
         onContribute: (all: boolean) => {
           const amount = all ? this.state.candy : Math.floor(this.state.candy / 2);
@@ -658,7 +678,7 @@ export class Game {
             this.showLose();
             return;
           }
-          this.continueToNextRound();
+          this.presentRoundEnd();
         },
       },
       { popup: !!opts?.keepRoundEnd },
@@ -729,6 +749,7 @@ export class Game {
     this.hud.hide();
     this.reticle.hide();
     this.settings.hide();
+    this.story.hide();
     this.showBootScreen();
   }
 
@@ -737,12 +758,16 @@ export class Game {
     this.ticketShop.hide();
     this.settings.hide();
     this.candyBalance.hide();
+    this.story.hide();
     this.boot.show(
       () => {
         void (async () => {
           await this.assetsReady;
           void this.audio.unlock();
-          this.startRound();
+          this.story.show({
+            onDone: () => this.startRound(),
+            onUi: () => this.audio.ui(),
+          });
         })();
       },
       () => this.openShop(),

@@ -1,6 +1,6 @@
 import * as THREE from "three";
-import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { createStickMaterial, loadStickAssets, setStickHue } from "../world/stickAssets";
+import { acquirePreviewRenderer, attachPreviewCanvas, releasePreviewRenderer } from "./previewRenderer";
 
 const SPIN_RAD_PER_SEC = 0.7;
 
@@ -15,34 +15,21 @@ export class StickPreview {
   private raf = 0;
   private lastTime = 0;
   private disposed = false;
+  private ownsRenderer = false;
 
   async mount(host: HTMLElement, hue: number): Promise<void> {
     this.dispose();
     this.disposed = false;
 
-    const canvas = document.createElement("canvas");
-    canvas.setAttribute("aria-hidden", "true");
-    host.appendChild(canvas);
-
-    const renderer = new THREE.WebGLRenderer({
-      canvas,
-      antialias: true,
-      alpha: true,
-      powerPreference: "low-power",
-    });
-    renderer.setClearColor(0x000000, 0);
-    renderer.outputColorSpace = THREE.SRGBColorSpace;
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.05;
+    const { renderer, envMap } = acquirePreviewRenderer();
+    this.ownsRenderer = true;
     this.renderer = renderer;
+    this.envMap = envMap;
+    attachPreviewCanvas(host);
 
     const scene = new THREE.Scene();
     this.scene = scene;
-
-    const pmrem = new THREE.PMREMGenerator(renderer);
-    this.envMap = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
-    scene.environment = this.envMap;
-    pmrem.dispose();
+    scene.environment = envMap;
 
     scene.add(new THREE.HemisphereLight(0xfff0dd, 0x2a2030, 0.55));
     const key = new THREE.DirectionalLight(0xffe6b5, 1.2);
@@ -111,13 +98,12 @@ export class StickPreview {
     this.camera = null;
     this.material?.dispose();
     this.material = null;
-    this.envMap?.dispose();
     this.envMap = null;
-    if (this.renderer) {
-      this.renderer.dispose();
-      this.renderer.domElement.remove();
-      this.renderer = null;
+    if (this.ownsRenderer) {
+      releasePreviewRenderer();
+      this.ownsRenderer = false;
     }
+    this.renderer = null;
   }
 
   private syncSize(host: HTMLElement): void {

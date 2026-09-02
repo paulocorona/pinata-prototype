@@ -9,4 +9,8 @@ export function applyAssetCssVars(): void {
     "--art-courtyard",
     `url("${assetUrl("art/courtyard.jpg")}")`,
   );
+  document.documentElement.style.setProperty(
+    "--art-dialogue-box",
+    `url("${assetUrl("art/T_DialogueBox.png")}")`,
+  );
 }

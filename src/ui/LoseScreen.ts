@@ -18,7 +18,7 @@ export class LoseScreen {
     this.el.innerHTML = `
       <div class="panel boot-title">
         <div class="brand brand-lose">YOU LOSE</div>
-        <p class="sub">A Fiesta Order came due and was not paid. The party is over.</p>
+        <p class="sub">The kids went home with empty bags. A Fiesta Order came due unpaid.</p>
         <div class="ticket-payout">
           <div class="ticket-payout-label">Earned this run for paying those bills</div>
           <div class="ticket-payout-row">

@@ -4,6 +4,62 @@ export const PHONE_HEIGHT = 852;
 /** Bezel around the screen in CSS pixels, before scale. */
 export const PHONE_BEZEL = 14;
 
+function isHandheld(): boolean {
+  return window.matchMedia("(hover: none) and (pointer: coarse)").matches;
+}
+
+function isLandscape(): boolean {
+  return window.matchMedia("(orientation: landscape)").matches;
+}
+
+type LockableOrientation = ScreenOrientation & {
+  lock?: (orientation: "portrait" | "portrait-primary") => Promise<void>;
+};
+
+async function tryLockPortrait(): Promise<void> {
+  const orientation = window.screen.orientation as LockableOrientation | undefined;
+  if (!orientation || typeof orientation.lock !== "function") return;
+  try {
+    await orientation.lock("portrait");
+  } catch {
+    try {
+      await orientation.lock("portrait-primary");
+    } catch {
+      /* iOS and non-fullscreen browsers reject the lock. */
+    }
+  }
+}
+
+/**
+ * Lock to portrait when the browser allows it, and cover the screen on
+ * handheld landscape so the game never switches to a rotated layout.
+ */
+export function installPortraitLock(gate: HTMLElement): void {
+  const syncGate = () => {
+    const block = isHandheld() && isLandscape();
+    gate.classList.toggle("is-open", block);
+    gate.setAttribute("aria-hidden", block ? "false" : "true");
+  };
+
+  void tryLockPortrait();
+  window.addEventListener("pointerdown", () => void tryLockPortrait(), {
+    passive: true,
+    once: true,
+  });
+
+  window.addEventListener("resize", syncGate);
+  window.addEventListener("orientationchange", () => {
+    void tryLockPortrait();
+    syncGate();
+  });
+  window.screen.orientation?.addEventListener("change", () => {
+    void tryLockPortrait();
+    syncGate();
+  });
+  window.visualViewport?.addEventListener("resize", syncGate);
+  syncGate();
+}
+
 export function phoneScale(): number {
   const dw = PHONE_WIDTH + PHONE_BEZEL * 2;
   const dh = PHONE_HEIGHT + PHONE_BEZEL * 2;

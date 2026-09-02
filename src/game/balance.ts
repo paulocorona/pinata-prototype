@@ -566,6 +566,7 @@ export const MORE_DAMAGE_RATIO = 0.1;
 export const MORE_DAMAGE_IV_RATIO = 0.15;
 export const MORE_DAMAGE_MIN = 1;
 export const COLLATERAL_DAMAGE_RATIO = 0.25;
+export const COLLATERAL_DAMAGE_MIN = 1;
 export const SHOCKWAVE = {
   chance: 0.05,
   damageRatio: 0.25,
@@ -1471,7 +1472,7 @@ function hitRadiusDescription(id: UpgradeId, amountLabel: string, flavor?: strin
 }
 
 export function collateralBonusFor(power: number): number {
-  return Math.round(power * COLLATERAL_DAMAGE_RATIO);
+  return Math.max(COLLATERAL_DAMAGE_MIN, Math.round(power * COLLATERAL_DAMAGE_RATIO));
 }
 
 export function critChanceFor(upgrades: UpgradeLevels): number {
@@ -3210,7 +3211,7 @@ export const UPGRADES: UpgradeDef[] = [
   {
     id: "collateralDamage",
     name: "Multi-Smash",
-    description: "+25% of your base damage when your swing hits 2+ piñatas.",
+    description: "+25% of your base damage (minimum +1) when your swing hits 2+ piñatas.",
     maxLevel: 1,
     costs: [70],
     requires: ["hitRadius"],
@@ -4470,7 +4471,7 @@ export function orderCurrencyName(amount: number): string {
 }
 
 export const FIESTA_ORDERS = [
-  { round: 1, name: "Birthday Bags", flavor: "Fill candy bags for a small backyard birthday.", target: 20, dueInRounds: 0 },
+  { round: 1, name: "Neighborhood Kids", flavor: "It's Fiesta Day, and the neighborhood is out of candy.", target: 20, dueInRounds: 0 },
   { round: 2, name: "School Fiesta", flavor: "Supply the neighborhood school celebration.", target: 45, dueInRounds: 5 },
   { round: 3, name: "Block Party", flavor: "A much bigger crowd is coming.", target: 200, dueInRounds: 5 },
   { round: 4, name: "Grand Fiesta", flavor: "Decorations are ready; the candy table is not.", target: 750, dueInRounds: 9 },
@@ -4493,6 +4494,9 @@ export const FIESTA_ORDERS = [
 
 /** Orders unlock after this many upgrade purchases (Damage + one branch). */
 export const ORDERS_UNLOCK_UPGRADES = 2;
+
+/** Debug: Fiesta orders cost 0 candy and skip unlock/bank gates. */
+export const DEBUG_FREE_ORDERS = false;
 
 export const CAMERA_DEFAULTS = {
   fov: 16,

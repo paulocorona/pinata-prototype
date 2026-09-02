@@ -80,22 +80,22 @@ export class RoundEndOverlay {
       : `Next Unlock: ${unlock.next?.name ?? "???"}`;
 
     const dueIn = state.orderDueInRounds;
-    const orderUrgent = dueIn <= 1;
-    const dueLabel =
-      dueIn <= 0 ? "DUE NOW" : dueIn === 1 ? "1 round left" : `${dueIn} rounds left`;
-    const showContinue = state.hasContinueOnRoundEnd();
-    const showOrders = state.hasRoundEndHub() && !state.hasPaidFinalOrder();
+    const dueKicker = dueIn <= 0 ? "DUE" : "DUE IN";
+    const dueValue = dueIn <= 0 ? "NOW!" : dueIn === 1 ? "1 ROUND" : `${dueIn} ROUNDS`;
+    const dueUrgent = dueIn <= 2;
+    const orderPrice = formatNumber(state.orderRemaining());
+    const showOrders = state.isCurrentOrderVisible();
 
+    this.el.classList.add("has-top-candy");
+    this.el.classList.toggle("has-order-banner", showOrders);
     this.el.innerHTML = `
       <div class="round-end-stack">
       <div class="panel panel-round-end">
         <h1>Round ${state.round} Complete!</h1>
         <p class="sub">${
           showOrders
-            ? "Candy tallied. Choose upgrades, the next payment, or continue."
-            : showContinue
-              ? "Candy tallied. Choose upgrades or continue."
-              : "Candy tallied. Spend it on upgrades."
+            ? "Candy tallied. Choose upgrades, the next payment, or the next round."
+            : "Candy tallied. Choose upgrades or the next round."
         }</p>
         <div class="round-end-grid">
           <div class="stat-chip stat-chip-accuracy">
@@ -125,25 +125,35 @@ export class RoundEndOverlay {
           </div>
         </div>
         <div class="round-end-actions">
-          <button class="btn btn-primary interactive" data-upgrades>Upgrades</button>
-          ${
-            showOrders
-              ? `
-          <button class="btn btn-order interactive${orderUrgent ? " btn-order-warn" : ""}" data-orders>
-            <span>Next Order</span>
-            <span class="btn-order-due">${dueLabel}</span>
-          </button>`
-              : ""
-          }
-          ${
-            showContinue
-              ? `<button class="btn btn-secondary interactive" data-continue>Continue</button>`
-              : ""
-          }
+          <button class="btn btn-primary interactive${state.round === 1 ? " btn-upgrades-hint" : ""}" data-upgrades>Upgrades</button>
+          <button class="btn btn-blue interactive" data-continue>NEXT ROUND</button>
         </div>
       </div>
-      ${this.renderLevelRail(state.pinataLevels())}
+      <button type="button" class="btn btn-secondary interactive pinata-level-open" data-levels-toggle aria-expanded="false" aria-haspopup="dialog" aria-controls="pinata-level-hud">
+        Piñata Levels
+      </button>
       </div>
+      ${this.renderLevelHud(state.pinataLevels())}
+      ${
+        showOrders
+          ? `
+      <button type="button" class="round-end-order-banner interactive" data-orders aria-label="Next order, ${orderPrice} candy, ${dueKicker} ${dueValue}">
+        <span class="round-end-order-frame" aria-hidden="true"></span>
+        <span class="round-end-order-candy">
+          <img class="candy-coin-icon" src="${assetUrl("art/T_CandyCoin.png")}" alt="" draggable="false" />
+          <span class="round-end-order-candy-value">${orderPrice}</span>
+        </span>
+        <span class="round-end-order-due">
+          <img class="round-end-order-clock" src="${assetUrl("art/T_Clock.png")}" alt="" draggable="false" />
+          <span class="round-end-order-due-copy">
+            <span class="round-end-order-due-kicker">${dueKicker}</span>
+            <span class="round-end-order-due-value${dueUrgent ? " is-urgent is-warn" : ""}">${dueValue}</span>
+          </span>
+        </span>
+        <img class="round-end-order-kid-art" src="${assetUrl("art/T_OrderKid.png")}" alt="" draggable="false" />
+      </button>`
+          : ""
+      }
     `;
     this.el.classList.remove("hidden");
     const previewHost = this.el.querySelector("[data-unlock-preview]");
@@ -159,15 +169,13 @@ export class RoundEndOverlay {
       this.onUpgrades?.();
     });
     this.el.querySelector("[data-orders]")?.addEventListener("click", () => {
-      this.hide();
       this.onOrders?.();
     });
     this.el.querySelector("[data-continue]")?.addEventListener("click", () => {
       this.hide();
       this.onContinue?.();
     });
-    this.bindLevelToggle();
-    this.animateLevelFills();
+    this.bindLevelHud();
     this.applyLockedSilhouettes();
   }
 
@@ -178,10 +186,13 @@ export class RoundEndOverlay {
       this.fillRaf = 0;
     }
     this.disposePreview();
+    this.el.querySelector("[data-levels-hud]")?.classList.add("hidden");
+    this.el.querySelector("[data-levels-toggle]")?.setAttribute("aria-expanded", "false");
     this.el.classList.add("hidden");
+    this.el.classList.remove("has-order-banner", "has-top-candy");
   }
 
-  private renderLevelRail(rows: PinataLevelRow[]): string {
+  private renderLevelHud(rows: PinataLevelRow[]): string {
     const items = rows
       .map((row) => {
         const locked = !row.unlocked;
@@ -219,30 +230,29 @@ export class RoundEndOverlay {
       .join("");
 
     return `
-      <aside class="pinata-level-rail" data-levels-rail>
-        <button type="button" class="pinata-level-toggle interactive" data-levels-toggle aria-expanded="false">
-          <span>Piñata Levels</span>
-          <span class="pinata-level-arrow" aria-hidden="true"></span>
-        </button>
-        <div class="pinata-level-body">
+      <div class="pinata-level-hud hidden" id="pinata-level-hud" data-levels-hud role="dialog" aria-modal="true" aria-labelledby="pinata-level-title">
+        <div class="panel panel-pinata-levels">
+          <h1 id="pinata-level-title">Piñata Levels</h1>
           <div class="pinata-level-list">${items}</div>
-          <button type="button" class="pinata-level-hide interactive" data-levels-hide aria-label="Hide piñata levels">
-            <span class="pinata-level-arrow" aria-hidden="true"></span>
-          </button>
+          <button type="button" class="btn btn-secondary interactive" data-levels-hide>Close</button>
         </div>
-      </aside>`;
+      </div>`;
   }
 
-  private bindLevelToggle(): void {
-    const rail = this.el.querySelector("[data-levels-rail]");
+  private bindLevelHud(): void {
+    const hud = this.el.querySelector("[data-levels-hud]");
     const toggleBtn = this.el.querySelector("[data-levels-toggle]");
-    if (!(rail instanceof HTMLElement) || !(toggleBtn instanceof HTMLElement)) return;
+    if (!(hud instanceof HTMLElement) || !(toggleBtn instanceof HTMLElement)) return;
     const setOpen = (open: boolean) => {
-      rail.classList.toggle("is-open", open);
+      hud.classList.toggle("hidden", !open);
       toggleBtn.setAttribute("aria-expanded", open ? "true" : "false");
+      if (open) this.animateLevelFills();
     };
-    toggleBtn.addEventListener("click", () => setOpen(!rail.classList.contains("is-open")));
+    toggleBtn.addEventListener("click", () => setOpen(true));
     this.el.querySelector("[data-levels-hide]")?.addEventListener("click", () => setOpen(false));
+    hud.addEventListener("click", (event) => {
+      if (event.target === hud) setOpen(false);
+    });
   }
 
   private applyLockedSilhouettes(): void {

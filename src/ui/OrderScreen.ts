@@ -3,6 +3,18 @@ import { FIESTA_ORDERS } from "../game/balance";
 import { assetUrl } from "../util/assetUrl";
 import { formatNumber } from "../util/math";
 
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+const ORDER_PAID_HOLD_MS = 2000;
+const ORDER_COMPLETE_ART = "art/T_OrderComplete.png";
+const CONFETTI_COLORS = ["#f419a1", "#f38605", "#fddd04", "#40e50e", "#03aafc", "#8c0ef7", "#ff4d8a", "#fff8ef"];
+
 /** Between-rounds Fiesta Order contribution screen (upgrades live on the skill tree). */
 export class OrderScreen {
   readonly el: HTMLElement;
@@ -14,11 +26,16 @@ export class OrderScreen {
   private onContinue: (() => void) | null = null;
 
   private notEnoughTimer = 0;
+  private paidTimer = 0;
+  private paidDone: (() => void) | null = null;
+  private celebrating = false;
 
   constructor(root: HTMLElement) {
     this.el = document.createElement("div");
     this.el.className = "overlay overlay-order hidden";
     root.appendChild(this.el);
+    const preload = new Image();
+    preload.src = assetUrl(ORDER_COMPLETE_ART);
   }
 
   show(
@@ -32,6 +49,7 @@ export class OrderScreen {
     },
     opts?: { popup?: boolean },
   ): void {
+    this.clearPaidHold();
     this.state = state;
     this.onFillOrder = handlers.onFillOrder;
     this.onContribute = handlers.onContribute;
@@ -44,14 +62,35 @@ export class OrderScreen {
   }
 
   refresh(): void {
+    if (this.celebrating) return;
     if (!this.el.classList.contains("hidden")) this.render();
+  }
+
+  /**
+   * Swap to the paid poster, burst confetti, and hold for 2s before continuing.
+   */
+  playPaidCelebration(onDone: () => void): void {
+    if (this.celebrating) return;
+    this.celebrating = true;
+    this.paidDone = onDone;
+    this.applyPaidVisuals();
+    this.burstConfetti();
+    window.clearTimeout(this.paidTimer);
+    this.paidTimer = window.setTimeout(() => {
+      this.paidTimer = 0;
+      const done = this.paidDone;
+      this.paidDone = null;
+      this.celebrating = false;
+      this.hide();
+      done?.();
+    }, ORDER_PAID_HOLD_MS);
   }
 
   private render(): void {
     const state = this.state!;
     const ready = state.orderFulfilled();
 
-    if (state.isFirstOrder()) {
+    if (state.isFirstOrder() || state.isUnpaidDueOrder()) {
       this.renderPaymentDue(state);
       return;
     }
@@ -62,25 +101,37 @@ export class OrderScreen {
     this.renderStandardOrder(state);
   }
 
-  /** Due now: mandatory pay — Give Candy only, no skip/back. */
+  /** Due now: Give Candy, plus Give Up if they cannot cover the order. */
   private renderPaymentDue(state: GameState): void {
+    const broke = !state.canFillOrder();
     this.el.innerHTML = `
       <div class="panel panel-order">
+        ${this.storyHtml(state)}
         ${this.posterHtml(state)}
         <div class="order-poster-actions">
           <button class="btn btn-fill-order interactive" data-fill>
             Give Candy
           </button>
+          ${
+            broke
+              ? `<button class="btn btn-give-up interactive" data-give-up>Give Up</button>`
+              : ""
+          }
         </div>
       </div>
     `;
     this.bindFill(state);
+    this.el.querySelector("[data-give-up]")?.addEventListener("click", () => {
+      this.hide();
+      this.onSkip?.();
+    });
   }
 
-  /** Scheduled next payment: Give Candy now, or Not Yet and pay later. */
+  /** Scheduled next payment: Give Candy now, or Not Yet to return to Round Complete. */
   private renderUpcomingOrder(state: GameState): void {
     this.el.innerHTML = `
       <div class="panel panel-order">
+        ${this.storyHtml(state)}
         ${this.posterHtml(state)}
         <div class="order-poster-actions">
           <button class="btn btn-fill-order interactive" data-fill>
@@ -113,6 +164,7 @@ export class OrderScreen {
 
     this.el.innerHTML = `
       <div class="panel panel-order">
+        ${this.storyHtml(state)}
         ${this.posterHtml(state)}
         ${contribute}
         <div class="order-poster-actions">
@@ -133,14 +185,24 @@ export class OrderScreen {
       this.render();
     });
     this.el.querySelector("[data-start]")?.addEventListener("click", () => {
-      if (!state.orderFulfilled()) return;
-      this.hide();
-      this.onStart?.();
+      if (!state.orderFulfilled() || this.celebrating) return;
+      this.playPaidCelebration(() => this.onStart?.());
     });
     this.el.querySelector("[data-skip]")?.addEventListener("click", () => {
       this.hide();
       this.onSkip?.();
     });
+  }
+
+  private storyHtml(state: GameState): string {
+    if (state.isFirstOrder()) return "";
+    const order = state.getOrder();
+    return `
+      <div class="order-story">
+        <div class="order-story-name">${escapeHtml(order.name)}</div>
+        <p class="order-story-flavor">${escapeHtml(order.flavor)}</p>
+      </div>
+    `;
   }
 
   private posterHtml(state: GameState): string {
@@ -159,13 +221,64 @@ export class OrderScreen {
 
   private bindFill(state: GameState): void {
     this.el.querySelector("[data-fill]")?.addEventListener("click", () => {
+      if (this.celebrating) return;
+      if (state.orderFulfilled()) return;
       if (!state.canFillOrder()) {
         this.showNotEnough();
         return;
       }
-      this.hide();
       this.onFillOrder?.();
     });
+  }
+
+  private applyPaidVisuals(): void {
+    this.el.classList.add("is-paid");
+    const img = this.el.querySelector(".order-poster-art");
+    if (img instanceof HTMLImageElement) img.src = assetUrl(ORDER_COMPLETE_ART);
+    this.el.querySelector(".order-poster")?.classList.add("is-paid");
+  }
+
+  private burstConfetti(): void {
+    this.el.querySelector(".order-confetti")?.remove();
+    const layer = document.createElement("div");
+    layer.className = "order-confetti";
+    const overlayBox = this.el.getBoundingClientRect();
+    const poster = this.el.querySelector(".order-poster");
+    const posterBox = poster?.getBoundingClientRect();
+    const originX = posterBox
+      ? posterBox.left - overlayBox.left + posterBox.width * 0.5
+      : overlayBox.width * 0.5;
+    const originY = posterBox
+      ? posterBox.top - overlayBox.top + posterBox.height * 0.36
+      : overlayBox.height * 0.34;
+
+    const count = 72;
+    for (let i = 0; i < count; i++) {
+      const piece = document.createElement("span");
+      piece.className = "order-confetti-piece";
+      const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.55;
+      const dist = 90 + Math.random() * 240;
+      const dx = Math.cos(angle) * dist;
+      const up = -(70 + Math.random() * 140);
+      const dy = Math.sin(angle) * dist * 0.7 + 160 + Math.random() * 120;
+      const w = 5 + Math.random() * 8;
+      const h = 9 + Math.random() * 14;
+      const dur = 0.95 + Math.random() * 0.7;
+      piece.style.setProperty("--dx", dx.toFixed(1));
+      piece.style.setProperty("--up", up.toFixed(1));
+      piece.style.setProperty("--dy", dy.toFixed(1));
+      piece.style.setProperty("--rot", `${(Math.random() * 840 - 420).toFixed(0)}`);
+      piece.style.setProperty("--dur", `${dur}s`);
+      piece.style.left = `${originX}px`;
+      piece.style.top = `${originY}px`;
+      piece.style.width = `${w}px`;
+      piece.style.height = `${h}px`;
+      piece.style.background = CONFETTI_COLORS[i % CONFETTI_COLORS.length]!;
+      piece.style.animationDelay = `${Math.random() * 0.1}s`;
+      if (i % 5 === 0) piece.classList.add("is-round");
+      layer.appendChild(piece);
+    }
+    this.el.appendChild(layer);
   }
 
   private showNotEnough(): void {
@@ -178,9 +291,19 @@ export class OrderScreen {
     this.notEnoughTimer = window.setTimeout(() => toast.remove(), 1500);
   }
 
+  private clearPaidHold(): void {
+    window.clearTimeout(this.paidTimer);
+    this.paidTimer = 0;
+    this.paidDone = null;
+    this.celebrating = false;
+    this.el.classList.remove("is-paid");
+    this.el.querySelector(".order-confetti")?.remove();
+  }
+
   hide(): void {
     window.clearTimeout(this.notEnoughTimer);
     this.el.querySelector(".order-not-enough")?.remove();
+    this.clearPaidHold();
     this.el.classList.add("hidden");
     this.el.classList.remove("overlay-order-popup");
   }

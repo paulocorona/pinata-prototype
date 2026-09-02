@@ -3,7 +3,7 @@ import { ORDER_CURRENCY } from "../game/balance";
 import { assetUrl } from "../util/assetUrl";
 import { formatNumber } from "../util/math";
 
-/** Bottom-center candy bank — shown on round-end and upgrades screens only. */
+/** Candy bank HUD — top-center on round-end, bottom-center on upgrades/shop. */
 export class CandyBalance {
   readonly el: HTMLElement;
   private valueEl: HTMLElement;
@@ -31,6 +31,11 @@ export class CandyBalance {
 
   hide(): void {
     this.el.classList.add("hidden");
+    this.place("bottom");
+  }
+
+  place(where: "top" | "bottom"): void {
+    this.el.classList.toggle("is-top", where === "top");
   }
 
   sync(state: GameState, source: "run" | "shop" | "tickets" = "run"): void {
