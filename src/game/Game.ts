@@ -6,7 +6,7 @@ import { PINATA_TYPES, THIEF, isThiefPinata } from "./pinataTypes";
 import { pickSpawnPinataType, type PinataUnlockDef } from "./unlocks";
 import { CameraRig } from "../world/CameraRig";
 import { Arena, PLAY_Z, WALL_Z } from "../world/Arena";
-import { localPointFromClient, onViewportChange } from "../deviceFrame";
+import { isHandheld, localPointFromClient, onViewportChange } from "../deviceFrame";
 import {
   PinataFactory,
   PINATA_DEPTH_WORLD,
@@ -26,6 +26,7 @@ import { FireFx } from "../systems/FireFx";
 import { AudioManager } from "../audio/AudioManager";
 import { RoundHud } from "../ui/RoundHud";
 import { Reticle } from "../ui/Reticle";
+import { AimJoystick } from "../ui/AimJoystick";
 import { RoundEndOverlay } from "../ui/RoundEndOverlay";
 import { UnlockPopup } from "../ui/UnlockPopup";
 import { UpgradeScreen } from "../ui/UpgradeScreen";
@@ -39,7 +40,7 @@ import { SettingsScreen } from "../ui/SettingsScreen";
 import { StoryScreen, FIRST_KID_STORY } from "../ui/StoryScreen";
 import { CandyBalance } from "../ui/CandyBalance";
 import { rng } from "../util/rng";
-import { formatNumber } from "../util/math";
+import { clamp, formatNumber } from "../util/math";
 import type { UpgradeId } from "./balance";
 import type { StickId } from "./sticks";
 import {
@@ -82,6 +83,7 @@ export class Game {
   private hud: RoundHud;
   private candyBalance: CandyBalance;
   private reticle: Reticle;
+  private aimStick: AimJoystick;
   private roundEnd: RoundEndOverlay;
   private unlockPopup: UnlockPopup;
   private upgrades: UpgradeScreen;
@@ -203,6 +205,13 @@ export class Game {
     this.candyBalance.sync(this.state);
     this.reticle = new Reticle(reticleEl);
     this.reticle.move(this.pointer.x, this.pointer.y);
+    this.aimStick = new AimJoystick(uiRoot, canvas);
+    this.aimStick.onNudge = (dx, dy) => {
+      this.applyAim(
+        clamp(this.pointer.x + dx, 0, this.width),
+        clamp(this.pointer.y + dy, 0, this.height),
+      );
+    };
     this.roundEnd = new RoundEndOverlay(uiRoot);
     this.unlockPopup = new UnlockPopup(uiRoot);
     this.upgrades = new UpgradeScreen(uiRoot);
@@ -244,17 +253,27 @@ export class Game {
     };
   }
 
+  private applyAim(x: number, y: number): void {
+    this.pointer.x = x;
+    this.pointer.y = y;
+    this.targeting.setCursor(x, y, this.width, this.height);
+    this.reticle.move(x, y);
+    const ndcX = (x / this.width) * 2 - 1;
+    const ndcY = -((y / this.height) * 2 - 1);
+    this.weapon.setAimFromScreen(ndcX, ndcY);
+  }
+
+  private syncAimStick(): void {
+    if (isHandheld()) this.aimStick.show();
+    else this.aimStick.hide();
+  }
+
   private bindInput(): void {
     onViewportChange(() => this.onResize());
     window.addEventListener("pointermove", (e) => {
+      if (isHandheld()) return;
       const pt = localPointFromClient(this.canvas, e.clientX, e.clientY);
-      this.pointer.x = pt.x;
-      this.pointer.y = pt.y;
-      this.targeting.setCursor(pt.x, pt.y, this.width, this.height);
-      this.reticle.move(pt.x, pt.y);
-      const ndcX = (pt.x / this.width) * 2 - 1;
-      const ndcY = -((pt.y / this.height) * 2 - 1);
-      this.weapon.setAimFromScreen(ndcX, ndcY);
+      this.applyAim(pt.x, pt.y);
     });
     // Unlock audio on first gesture anywhere
     const unlock = () => {
@@ -496,6 +515,7 @@ export class Game {
     this.syncReticleSize(this.state.getHitRadius());
     this.reticle.setLocked(false);
     this.reticle.show();
+    this.syncAimStick();
     this.beginWarmup();
     this.roundEnd.hide();
     this.unlockPopup.hide();
@@ -517,6 +537,7 @@ export class Game {
       this.state.endRound();
       this.hud.hide();
       this.reticle.hide();
+      this.aimStick.hide();
       this.showRoundEnd();
     }, 650);
   }
@@ -688,6 +709,7 @@ export class Game {
     this.orderPrep.hide();
     this.hud.hide();
     this.reticle.hide();
+    this.aimStick.hide();
     this.candyBalance.hide();
     this.summary.hide();
     this.state.endRunEarly();
@@ -731,6 +753,7 @@ export class Game {
     this.shop.hide();
     this.hud.hide();
     this.reticle.hide();
+    this.aimStick.hide();
     this.settings.hide();
     this.story.hide();
     this.showBootScreen();
@@ -1102,6 +1125,7 @@ export class Game {
       (this.state.phase === "warmup" || this.state.phase === "roundActive") && !this.endingRound;
     if (inArena) {
       this.reticle.show();
+      this.syncAimStick();
       const hitRadius = this.state.getHitRadius();
       const target = this.targeting.update(
         scaledDt,
