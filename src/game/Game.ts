@@ -596,6 +596,10 @@ export class Game {
         if (this.tutorial.isActive()) this.dismissRound1Tutorial();
         this.openDueOrderOrContinue();
       },
+      onHome: () => {
+        this.audio.ui();
+        this.restart();
+      },
       onLevelsToggle: (open) => {
         if (!this.tutorial.isActive()) return;
         if (open) this.showFirstPinataTutorial();

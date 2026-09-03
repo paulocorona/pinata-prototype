@@ -8,11 +8,14 @@ import { formatNumber } from "../util/math";
 import { UnlockPinataPreview, skinForUnlockType } from "./UnlockPinataPreview";
 import { pinataSilhouetteSrc } from "./pinataSilhouette";
 
+const HOME_ICON = `<svg class="round-end-home-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 3.15 2.45 11.2c-.36.3-.15.9.26.9H5.2v7.35c0 .55.45 1 1 1h4.05v-5.2h3.5v5.2H17.8c.55 0 1-.45 1-1V12.1h2.49c.41 0 .62-.6.26-.9L12 3.15Z"/></svg>`;
+
 export class RoundEndOverlay {
   readonly el: HTMLElement;
   private onUpgrades: (() => void) | null = null;
   private onOrders: (() => void) | null = null;
   private onContinue: (() => void) | null = null;
+  private onHome: (() => void) | null = null;
   private onLevelsToggle: ((open: boolean) => void) | null = null;
   private onPinataDetail: ((open: boolean) => void) | null = null;
   private unlockPreview: UnlockPinataPreview | null = null;
@@ -32,6 +35,7 @@ export class RoundEndOverlay {
       onUpgrades: () => void;
       onOrders: () => void;
       onContinue: () => void;
+      onHome: () => void;
       onLevelsToggle?: (open: boolean) => void;
       onPinataDetail?: (open: boolean) => void;
     },
@@ -44,6 +48,7 @@ export class RoundEndOverlay {
     this.onUpgrades = handlers.onUpgrades;
     this.onOrders = handlers.onOrders;
     this.onContinue = handlers.onContinue;
+    this.onHome = handlers.onHome;
     this.onLevelsToggle = handlers.onLevelsToggle ?? null;
     this.onPinataDetail = handlers.onPinataDetail ?? null;
     const s = state.roundStats;
@@ -140,6 +145,9 @@ export class RoundEndOverlay {
         Piñata Levels
       </button>
       </div>
+      <button type="button" class="btn btn-secondary interactive round-end-home" data-home aria-label="Home">
+        ${HOME_ICON}
+      </button>
       ${this.renderLevelHud(state.pinataLevels())}
       ${
         showOrders
@@ -181,6 +189,10 @@ export class RoundEndOverlay {
     this.el.querySelector("[data-continue]")?.addEventListener("click", () => {
       this.hide();
       this.onContinue?.();
+    });
+    this.el.querySelector("[data-home]")?.addEventListener("click", () => {
+      this.hide();
+      this.onHome?.();
     });
     this.bindLevelHud();
     this.applyLockedSilhouettes();

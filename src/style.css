@@ -1454,6 +1454,26 @@ html:not(.is-handheld) .aim-joystick {
   flex: 0 0 auto;
 }
 
+.round-end-home {
+  position: absolute;
+  left: 12px;
+  bottom: max(18px, calc(var(--safe-bottom) + 6px));
+  z-index: 6;
+  width: 48px;
+  height: 48px;
+  min-width: 48px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+}
+
+.round-end-home-icon {
+  width: 26px;
+  height: 26px;
+  display: block;
+}
+
 .pinata-level-hud {
   position: absolute;
   inset: 0;
