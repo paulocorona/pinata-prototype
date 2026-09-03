@@ -1454,24 +1454,31 @@ html:not(.is-handheld) .aim-joystick {
   flex: 0 0 auto;
 }
 
-.round-end-home {
+.btn.round-end-home {
   position: absolute;
   left: 12px;
   bottom: max(18px, calc(var(--safe-bottom) + 6px));
   z-index: 6;
+  box-sizing: border-box;
   width: 48px;
   height: 48px;
   min-width: 48px;
+  max-width: 48px;
   padding: 0;
-  display: grid;
-  place-items: center;
+  margin: 0;
+  line-height: 0;
+  font-size: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border-radius: 50%;
 }
 
 .round-end-home-icon {
-  width: 26px;
-  height: 26px;
+  width: 24px;
+  height: 24px;
   display: block;
+  flex: none;
 }
 
 .pinata-level-hud {
@@ -2572,27 +2579,10 @@ html:not(.is-handheld) .aim-joystick {
   cursor: default;
 }
 
-.overlay-tutorial.is-pass-through .tutorial-pane,
-.overlay-tutorial.is-pass-through .tutorial-hole-catch {
-  pointer-events: none;
-}
-
-.overlay-tutorial.is-pass-through .tutorial-pulse {
-  animation-name: tutorialPulseRing;
-}
-
-@keyframes tutorialPulseRing {
-  0%,
-  100% {
-    box-shadow:
-      0 0 0 3px rgba(255, 209, 102, 0.95),
-      0 0 14px rgba(255, 209, 102, 0.4);
-  }
-  50% {
-    box-shadow:
-      0 0 0 9px rgba(255, 209, 102, 0.28),
-      0 0 28px rgba(255, 209, 102, 0.85);
-  }
+.overlay.overlay-story.overlay-tutorial.is-full-dim {
+  background: rgba(8, 4, 12, 0.72);
+  pointer-events: auto;
+  cursor: pointer;
 }
 
 @keyframes tutorialPulse {

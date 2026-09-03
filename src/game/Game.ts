@@ -101,6 +101,8 @@ export class Game {
   private tutorial: TutorialOverlay;
   /** True after the round-1 coach marks are skipped, finished, or already seen. */
   private round1TutorialDone = hasCompletedRound1Tutorial();
+  /** Dialogue dismissed on the upgrade screen; Back should resume the tour. */
+  private round1TutorialAwaitingBack = false;
   private uiRoot: HTMLElement;
   private canvas: HTMLCanvasElement;
   private assetsReady: Promise<void>;
@@ -658,12 +660,11 @@ export class Game {
 
   private showBackButtonTutorial(): void {
     this.upgrades.setTourLock(false);
+    this.round1TutorialAwaitingBack = true;
     this.tutorial.show({
       text: "Well done! Now take your time to look around and click on BACK when you're ready.",
-      target: () => this.upgrades.backButton(),
-      passThrough: true,
       tapToAdvance: true,
-      onAdvance: () => this.continueRound1TutorialAfterUpgrades(),
+      onAdvance: () => this.tutorial.hide(),
       onSkip: () => this.dismissRound1Tutorial(),
       onUi: () => this.audio.ui(),
     });
@@ -740,6 +741,7 @@ export class Game {
 
   private dismissRound1Tutorial(): void {
     this.round1TutorialDone = true;
+    this.round1TutorialAwaitingBack = false;
     markRound1TutorialComplete();
     this.upgrades.setTourLock(false);
     this.tutorial.hide();
@@ -771,8 +773,13 @@ export class Game {
         }
       },
       onBack: () => {
-        if (this.tutorial.isActive()) this.continueRound1TutorialAfterUpgrades();
-        else this.presentRoundEnd();
+        const continueTutorial = this.tutorial.isActive() || this.round1TutorialAwaitingBack;
+        this.round1TutorialAwaitingBack = false;
+        if (continueTutorial && !this.round1TutorialDone) {
+          this.continueRound1TutorialAfterUpgrades();
+          return;
+        }
+        this.presentRoundEnd();
       },
     });
   }
@@ -907,6 +914,7 @@ export class Game {
 
   private resetForNewRun(): void {
     this.round1TutorialDone = true;
+    this.round1TutorialAwaitingBack = false;
     markRound1TutorialComplete();
     this.state.bankRunCandy();
     this.state.resetRun();
