@@ -93,13 +93,17 @@ export function fitPhoneFrame(slot: HTMLElement): void {
   const apply = () => {
     const handheld = isHandheld();
     document.documentElement.classList.toggle("is-handheld", handheld);
+    const view = viewportRect();
+    document.documentElement.style.setProperty(
+      "--vv-offset-top",
+      handheld ? `${Math.max(0, Math.round(view.top))}px` : "0px",
+    );
     if (handheld) {
-      const { width, height, left, top } = viewportRect();
       slot.style.position = "fixed";
-      slot.style.left = `${left}px`;
-      slot.style.top = `${top}px`;
-      slot.style.width = `${Math.max(1, width)}px`;
-      slot.style.height = `${Math.max(1, height)}px`;
+      slot.style.left = `${view.left}px`;
+      slot.style.top = `${view.top}px`;
+      slot.style.width = `${Math.max(1, view.width)}px`;
+      slot.style.height = `${Math.max(1, view.height)}px`;
       slot.style.setProperty("--phone-scale", "1");
       return;
     }
