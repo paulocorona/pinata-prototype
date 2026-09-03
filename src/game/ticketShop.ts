@@ -66,6 +66,8 @@ const STORAGE_KEY = "pinata-ticket-shop-v1";
 export interface TicketShopSave {
   tickets: number;
   upgrades: Record<string, number>;
+  /** 1-based run the player is currently on (persists across sessions). */
+  runNumber: number;
 }
 
 export function emptyTicketUpgradeLevels(): Record<string, number> {
@@ -82,6 +84,7 @@ function defaultSave(): TicketShopSave {
   return {
     tickets: 0,
     upgrades: emptyTicketUpgradeLevels(),
+    runNumber: 1,
   };
 }
 
@@ -107,6 +110,7 @@ export function loadTicketShopSave(): TicketShopSave {
     return {
       tickets: clampInt(parsed.tickets),
       upgrades,
+      runNumber: Math.max(1, clampInt(parsed.runNumber)),
     };
   } catch {
     return fallback;

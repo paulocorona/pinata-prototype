@@ -263,6 +263,8 @@ export const BASE = {
   particleCap: 220,
   /** Fraction of round candy awarded when accuracy is exactly 100% (with ≥1 swing). */
   accuracyPerfectBonusRate: 0.1,
+  /** Candy granted at the end of round 1 if the player earned nothing (AFK / no loot). */
+  round1PityCandy: 1,
   /** Concurrent pinatas at round start. After that wave, only one at a time. */
   startingPinatas: 4,
 };

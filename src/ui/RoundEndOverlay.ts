@@ -1,8 +1,8 @@
 import type { GameState } from "../game/GameState";
 import { formatPercent } from "../game/balance";
 import { candyTypesForDisplay } from "../game/candyTypes";
-import { PINATA_TYPES, pinataPortraitSrc, type PinataTypeId } from "../game/pinataTypes";
-import { accentForPinataType, type PinataLevelRow } from "../game/pinataLevels";
+import { PINATA_TYPES, THIEF, pinataPortraitSrc, type PinataTypeDef, type PinataTypeId } from "../game/pinataTypes";
+import { accentForPinataType, PINATA_LEVEL_LOOT_PER_RANK, type PinataLevelRow } from "../game/pinataLevels";
 import { assetUrl } from "../util/assetUrl";
 import { formatNumber } from "../util/math";
 import { UnlockPinataPreview, skinForUnlockType } from "./UnlockPinataPreview";
@@ -13,9 +13,12 @@ export class RoundEndOverlay {
   private onUpgrades: (() => void) | null = null;
   private onOrders: (() => void) | null = null;
   private onContinue: (() => void) | null = null;
+  private onLevelsToggle: ((open: boolean) => void) | null = null;
+  private onPinataDetail: ((open: boolean) => void) | null = null;
   private unlockPreview: UnlockPinataPreview | null = null;
   private fillRaf = 0;
   private silhouetteGen = 0;
+  private levelRows: PinataLevelRow[] = [];
 
   constructor(root: HTMLElement) {
     this.el = document.createElement("div");
@@ -29,6 +32,8 @@ export class RoundEndOverlay {
       onUpgrades: () => void;
       onOrders: () => void;
       onContinue: () => void;
+      onLevelsToggle?: (open: boolean) => void;
+      onPinataDetail?: (open: boolean) => void;
     },
   ): void {
     this.disposePreview();
@@ -39,6 +44,8 @@ export class RoundEndOverlay {
     this.onUpgrades = handlers.onUpgrades;
     this.onOrders = handlers.onOrders;
     this.onContinue = handlers.onContinue;
+    this.onLevelsToggle = handlers.onLevelsToggle ?? null;
+    this.onPinataDetail = handlers.onPinataDetail ?? null;
     const s = state.roundStats;
     const accuracyPct = state.accuracyPercent();
     const perfect = s.accuracyBonus > 0;
@@ -116,7 +123,7 @@ export class RoundEndOverlay {
             <div class="value">${formatNumber(s.breaks)}</div>
             ${pinataBreakdown ? `<div class="break-type-row">${pinataBreakdown}</div>` : ""}
           </div>
-          <div class="stat-chip unlock-chip">
+          <div class="stat-chip unlock-chip" data-unlock-chip>
             <div class="label">${unlockTitle}</div>
             <div class="unlock-hero">
               <div class="unlock-preview" data-unlock-preview></div>
@@ -125,7 +132,7 @@ export class RoundEndOverlay {
           </div>
         </div>
         <div class="round-end-actions">
-          <button class="btn btn-primary interactive${state.round === 1 ? " btn-upgrades-hint" : ""}" data-upgrades>Upgrades</button>
+          <button class="btn btn-primary interactive" data-upgrades>Upgrades</button>
           <button class="btn btn-blue interactive" data-continue>NEXT ROUND</button>
         </div>
       </div>
@@ -179,6 +186,51 @@ export class RoundEndOverlay {
     this.applyLockedSilhouettes();
   }
 
+  upgradesButton(): HTMLElement | null {
+    return this.el.querySelector("[data-upgrades]");
+  }
+
+  continueButton(): HTMLElement | null {
+    return this.el.querySelector("[data-continue]");
+  }
+
+  unlockChip(): HTMLElement | null {
+    return this.el.querySelector("[data-unlock-chip]");
+  }
+
+  levelsButton(): HTMLElement | null {
+    return this.el.querySelector("[data-levels-toggle]");
+  }
+
+  firstLevelRow(): HTMLElement | null {
+    return (
+      this.el.querySelector(".pinata-level-row:not(.is-locked)") ??
+      this.el.querySelector(".pinata-level-row")
+    );
+  }
+
+  levelsCloseButton(): HTMLElement | null {
+    return this.el.querySelector("[data-levels-hide]");
+  }
+
+  pinataDetailPanel(): HTMLElement | null {
+    return this.el.querySelector("[data-pinata-detail-panel]");
+  }
+
+  closeLevelsHud(): void {
+    this.setLevelsHudOpen(false);
+  }
+
+  private setLevelsHudOpen(open: boolean): void {
+    const hud = this.el.querySelector("[data-levels-hud]");
+    const toggleBtn = this.el.querySelector("[data-levels-toggle]");
+    if (!(hud instanceof HTMLElement) || !(toggleBtn instanceof HTMLElement)) return;
+    if (!open) this.hidePinataDetail();
+    hud.classList.toggle("hidden", !open);
+    toggleBtn.setAttribute("aria-expanded", open ? "true" : "false");
+    if (open) this.animateLevelFills();
+  }
+
   hide(): void {
     this.silhouetteGen += 1;
     if (this.fillRaf) {
@@ -186,6 +238,7 @@ export class RoundEndOverlay {
       this.fillRaf = 0;
     }
     this.disposePreview();
+    this.hidePinataDetail();
     this.el.querySelector("[data-levels-hud]")?.classList.add("hidden");
     this.el.querySelector("[data-levels-toggle]")?.setAttribute("aria-expanded", "false");
     this.el.classList.add("hidden");
@@ -193,6 +246,7 @@ export class RoundEndOverlay {
   }
 
   private renderLevelHud(rows: PinataLevelRow[]): string {
+    this.levelRows = rows;
     const items = rows
       .map((row) => {
         const locked = !row.unlocked;
@@ -215,7 +269,7 @@ export class RoundEndOverlay {
           </div>`;
         }
         return `
-          <div class="pinata-level-row${upClass}" style="--accent:${accent}">
+          <div class="pinata-level-row${upClass} interactive" style="--accent:${accent}" data-pinata-open="${row.typeId}" role="button" tabindex="0" aria-haspopup="dialog" aria-label="${row.name}">
             <div class="pinata-level-head">
               <span class="pinata-level-name">${row.name}</span>
               <span class="pinata-level-lv">Lv ${formatNumber(row.level)}</span>
@@ -230,11 +284,15 @@ export class RoundEndOverlay {
       .join("");
 
     return `
-      <div class="pinata-level-hud hidden" id="pinata-level-hud" data-levels-hud role="dialog" aria-modal="true" aria-labelledby="pinata-level-title">
+      <div class="pinata-level-hud hidden" id="pinata-level-hud" data-levels-hud role="dialog" aria-modal="true" aria-labelledby="pinata-level-title" aria-describedby="pinata-level-copy">
         <div class="panel panel-pinata-levels">
           <h1 id="pinata-level-title">Piñata Levels</h1>
+          <p class="sub" id="pinata-level-copy">Level up pinatas by breaking them, to increase their loot by ${formatPercent(PINATA_LEVEL_LOOT_PER_RANK)} per level.</p>
           <div class="pinata-level-list">${items}</div>
           <button type="button" class="btn btn-secondary interactive" data-levels-hide>Close</button>
+        </div>
+        <div class="pinata-detail-hud hidden" data-pinata-detail role="dialog" aria-modal="true" aria-labelledby="pinata-detail-title">
+          <div class="panel panel-pinata-detail" data-pinata-detail-panel></div>
         </div>
       </div>`;
   }
@@ -242,17 +300,112 @@ export class RoundEndOverlay {
   private bindLevelHud(): void {
     const hud = this.el.querySelector("[data-levels-hud]");
     const toggleBtn = this.el.querySelector("[data-levels-toggle]");
+    const list = this.el.querySelector(".pinata-level-list");
+    const detail = this.el.querySelector("[data-pinata-detail]");
     if (!(hud instanceof HTMLElement) || !(toggleBtn instanceof HTMLElement)) return;
-    const setOpen = (open: boolean) => {
-      hud.classList.toggle("hidden", !open);
-      toggleBtn.setAttribute("aria-expanded", open ? "true" : "false");
-      if (open) this.animateLevelFills();
-    };
-    toggleBtn.addEventListener("click", () => setOpen(true));
-    this.el.querySelector("[data-levels-hide]")?.addEventListener("click", () => setOpen(false));
-    hud.addEventListener("click", (event) => {
-      if (event.target === hud) setOpen(false);
+    const setOpen = (open: boolean) => this.setLevelsHudOpen(open);
+    toggleBtn.addEventListener("click", () => {
+      setOpen(true);
+      this.onLevelsToggle?.(true);
     });
+    this.el.querySelector("[data-levels-hide]")?.addEventListener("click", () => {
+      setOpen(false);
+      this.onLevelsToggle?.(false);
+    });
+    hud.addEventListener("click", (event) => {
+      if (event.target !== hud) return;
+      setOpen(false);
+      this.onLevelsToggle?.(false);
+    });
+    const openFromTarget = (target: EventTarget | null) => {
+      const row = target instanceof Element ? target.closest("[data-pinata-open]") : null;
+      if (!(row instanceof HTMLElement)) return;
+      const typeId = row.dataset.pinataOpen;
+      if (typeId) this.showPinataDetail(typeId);
+    };
+    list?.addEventListener("click", (event) => openFromTarget(event.target));
+    list?.addEventListener("keydown", (event) => {
+      if (!(event instanceof KeyboardEvent)) return;
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      openFromTarget(event.target);
+    });
+    detail?.addEventListener("click", (event) => {
+      if (event.target === detail) this.hidePinataDetail();
+    });
+  }
+
+  private showPinataDetail(typeId: string): void {
+    if (!(typeId in PINATA_TYPES)) return;
+    const def = PINATA_TYPES[typeId as PinataTypeId];
+    const hud = this.el.querySelector("[data-pinata-detail]");
+    const panel = this.el.querySelector("[data-pinata-detail-panel]");
+    if (!(hud instanceof HTMLElement) || !(panel instanceof HTMLElement)) return;
+    const row = this.levelRows.find((entry) => entry.typeId === typeId);
+    const accent = accentForPinataType(typeId);
+    const coin = `<img class="candy-coin-icon" src="${assetUrl("art/T_CandyCoin.png")}" alt="" draggable="false" />`;
+    const level = row?.level ?? 1;
+    panel.style.setProperty("--accent", accent);
+    hud.setAttribute("aria-describedby", "pinata-detail-level");
+    panel.innerHTML = `
+      <img class="pinata-detail-preview" src="${pinataPortraitSrc(typeId)}" alt="" draggable="false" />
+      <h1 id="pinata-detail-title">${def.name}</h1>
+      <p class="pinata-detail-level" id="pinata-detail-level">Level ${formatNumber(level)}</p>
+      <div class="pinata-detail-stat">
+        <span class="label">HP</span>
+        <span class="value">${formatNumber(def.hp)}</span>
+      </div>
+      <div class="pinata-detail-loot">
+        <div class="pinata-detail-loot-title">Loot</div>
+        ${this.pinataLootHtml(def, row, coin)}
+      </div>
+      <button type="button" class="btn btn-secondary interactive" data-pinata-detail-hide>Close</button>
+    `;
+    hud.classList.remove("hidden");
+    panel.querySelector("[data-pinata-detail-hide]")?.addEventListener("click", () => {
+      this.hidePinataDetail();
+    });
+    this.onPinataDetail?.(true);
+  }
+
+  private pinataLootHtml(def: PinataTypeDef, row: PinataLevelRow | undefined, coin: string): string {
+    const bonus =
+      row && row.lootBonus > 0
+        ? `<div class="pinata-detail-loot-bonus">Level bonus +${formatPercent(row.lootBonus)}</div>`
+        : "";
+    if (def.thief) {
+      return `
+        <p class="pinata-detail-loot-note">
+          Roams for ${formatNumber(THIEF.fillDurationSec)}s grabbing floor candy.
+          Breaking it pays what it grabbed, or ${THIEF.payoutMult}× if it's full.
+        </p>
+        ${bonus}`;
+    }
+    if (def.loot.length === 0) {
+      return `<p class="pinata-detail-loot-note">No candy loot.</p>${bonus}`;
+    }
+    const total = def.loot.reduce((sum, band) => sum + band.weight, 0) || 1;
+    const bands = def.loot
+      .map((band) => {
+        const range =
+          band.min === band.max
+            ? formatNumber(band.min)
+            : `${formatNumber(band.min)}–${formatNumber(band.max)}`;
+        return `
+          <div class="pinata-detail-loot-row">
+            <span class="pinata-detail-loot-range">${coin}${range}</span>
+            <span class="pinata-detail-loot-chance">${formatPercent(band.weight / total)}</span>
+          </div>`;
+      })
+      .join("");
+    return `${bands}${bonus}`;
+  }
+
+  private hidePinataDetail(): void {
+    const hud = this.el.querySelector("[data-pinata-detail]");
+    if (!(hud instanceof HTMLElement) || hud.classList.contains("hidden")) return;
+    hud.classList.add("hidden");
+    this.onPinataDetail?.(false);
   }
 
   private applyLockedSilhouettes(): void {

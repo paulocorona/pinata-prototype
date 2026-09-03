@@ -59,6 +59,8 @@
   --phone-scale: 1;
   --safe-top: max(16px, env(safe-area-inset-top, 0px));
   --safe-bottom: max(16px, env(safe-area-inset-bottom, 0px));
+  /* Top-center candy HUD must sit below the Dynamic Island. */
+  --candy-hud-top: max(68px, calc(var(--safe-top) + 12px));
   /* Square skill-tree cells so square nodes sit without overlap. */
   --skill-tree-cell: 128px;
 }
@@ -581,7 +583,7 @@ html:not(.is-handheld) .aim-joystick {
 }
 
 .candy-balance.is-top {
-  top: calc(var(--safe-top) + 4px);
+  top: var(--candy-hud-top);
   bottom: auto;
 }
 
@@ -987,39 +989,6 @@ html:not(.is-handheld) .aim-joystick {
   padding-right: 10px;
 }
 
-.round-end-actions .btn-upgrades-hint {
-  z-index: 1;
-  transition: none;
-  animation: upgradesHintPulse 1.2s ease-in-out infinite;
-}
-
-.round-end-actions .btn-upgrades-hint:hover,
-.round-end-actions .btn-upgrades-hint:focus-visible {
-  animation: none;
-}
-
-.overlay-round-end .panel-round-end:has(.btn-upgrades-hint) {
-  overflow: visible;
-}
-
-@keyframes upgradesHintPulse {
-  0%,
-  100% {
-    transform: scale(1);
-    filter: brightness(1);
-    box-shadow:
-      0 0 0 0 rgba(255, 209, 102, 0.7),
-      0 4px 12px rgba(247, 127, 0, 0.35);
-  }
-  50% {
-    transform: scale(1.06);
-    filter: brightness(1.16);
-    box-shadow:
-      0 0 0 8px rgba(255, 209, 102, 0),
-      0 6px 20px rgba(255, 159, 28, 0.55);
-  }
-}
-
 .overlay.overlay-round-end {
   display: flex;
   flex-direction: column;
@@ -1031,7 +1000,7 @@ html:not(.is-handheld) .aim-joystick {
 }
 
 .overlay.overlay-round-end.has-top-candy {
-  padding-top: calc(var(--safe-top) + 52px);
+  padding-top: calc(var(--candy-hud-top) + 48px);
 }
 
 .overlay.overlay-round-end.has-order-banner {
@@ -1064,7 +1033,9 @@ html:not(.is-handheld) .aim-joystick {
 .round-end-order-frame {
   position: absolute;
   inset: 0;
+  background: none;
   border-style: solid;
+  border-color: transparent;
   border-width: var(--oh-frame-y, 24px) var(--oh-frame-x, 32px);
   border-image-source: var(--art-dialogue-box);
   border-image-slice: 118 150 fill;
@@ -1495,7 +1466,7 @@ html:not(.is-handheld) .aim-joystick {
 }
 
 .overlay-round-end.has-top-candy .pinata-level-hud {
-  padding-top: calc(var(--safe-top) + 52px);
+  padding-top: calc(var(--candy-hud-top) + 48px);
 }
 
 .panel-pinata-levels {
@@ -1512,7 +1483,15 @@ html:not(.is-handheld) .aim-joystick {
   flex-shrink: 0;
   text-align: center;
   font-size: 24px;
-  margin-bottom: 10px;
+  margin-bottom: 6px;
+}
+
+.panel-pinata-levels .sub {
+  flex-shrink: 0;
+  text-align: center;
+  margin: 0 4px 10px;
+  font-size: 13px;
+  line-height: 1.35;
 }
 
 .panel-pinata-levels .pinata-level-list {
@@ -1664,6 +1643,160 @@ html:not(.is-handheld) .aim-joystick {
   font-weight: 800;
   color: var(--accent, #ffd166);
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
+}
+
+.pinata-level-row.interactive:hover,
+.pinata-level-row.interactive:focus-visible {
+  border-color: color-mix(in srgb, var(--accent, #ffd166) 50%, transparent);
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.pinata-level-row.interactive:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent, #ffd166) 70%, transparent);
+  outline-offset: 1px;
+}
+
+.pinata-detail-hud {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px 12px;
+  background: rgba(8, 4, 12, 0.86);
+}
+
+.panel-pinata-detail {
+  width: 100%;
+  max-height: 100%;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  text-align: center;
+  animation: unlockPop 420ms cubic-bezier(0.2, 1.15, 0.32, 1);
+}
+
+.panel-pinata-detail h1 {
+  margin: 0;
+  font-size: 24px;
+  line-height: 1.1;
+}
+
+.pinata-detail-level {
+  margin: 2px 0 10px;
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--accent, #ffd166);
+}
+
+.pinata-detail-preview {
+  width: 116px;
+  height: 138px;
+  margin: 0 auto 6px;
+  object-fit: contain;
+  filter: drop-shadow(0 10px 14px rgba(0, 0, 0, 0.45));
+  pointer-events: none;
+}
+
+.pinata-detail-stat {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.pinata-detail-stat .label {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 248, 239, 0.6);
+}
+
+.pinata-detail-stat .value {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--accent, #ffd166);
+}
+
+.pinata-detail-loot {
+  margin-top: 12px;
+  text-align: left;
+}
+
+.pinata-detail-loot-title {
+  margin-bottom: 6px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 248, 239, 0.6);
+  text-align: center;
+}
+
+.pinata-detail-loot-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 10px;
+  margin-bottom: 6px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.pinata-detail-loot-range {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  color: #fff8ef;
+}
+
+.pinata-detail-loot-range .candy-coin-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.pinata-detail-loot-chance {
+  flex-shrink: 0;
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--accent, #ffd166);
+}
+
+.pinata-detail-loot-note {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 248, 239, 0.78);
+  font-size: 13px;
+  line-height: 1.4;
+  text-align: center;
+}
+
+.pinata-detail-loot-bonus {
+  margin-top: 4px;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--accent, #ffd166);
+  text-align: center;
+}
+
+.panel-pinata-detail > .btn {
+  width: 100%;
+  flex-shrink: 0;
+  margin-top: 12px;
 }
 
 .overlay-upgrades {
@@ -2062,30 +2195,6 @@ html:not(.is-handheld) .aim-joystick {
   animation: floatUpCandy 1400ms ease forwards;
 }
 
-.float-text-candy:has(.float-text-coin) {
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 2px;
-  white-space: nowrap;
-  text-align: left;
-  transform-origin: left center;
-  animation-name: floatUpCandyLeft;
-}
-
-.float-text-coin {
-  width: 1.1em;
-  height: 1.1em;
-  object-fit: contain;
-  flex-shrink: 0;
-  display: block;
-  pointer-events: none;
-}
-
-.float-text-candy-amount {
-  text-align: left;
-}
-
 @keyframes floatUp {
   0% {
     opacity: 1;
@@ -2105,17 +2214,6 @@ html:not(.is-handheld) .aim-joystick {
   100% {
     opacity: 0;
     transform: translate(-50%, -48px) scale(1.15);
-  }
-}
-
-@keyframes floatUpCandyLeft {
-  0% {
-    opacity: 1;
-    transform: translate(0, 0) scale(0.9);
-  }
-  100% {
-    opacity: 0;
-    transform: translate(0, -48px) scale(1.15);
   }
 }
 
@@ -2259,8 +2357,9 @@ html:not(.is-handheld) .aim-joystick {
   width: 100%;
   height: 192px;
   flex-shrink: 0;
-  background-color: #2a1240;
+  background: none;
   border-style: solid;
+  border-color: transparent;
   border-width: 24px 32px 16px;
   border-image-source: var(--art-dialogue-box);
   border-image-slice: 118 150 fill;
@@ -2344,6 +2443,160 @@ html:not(.is-handheld) .aim-joystick {
   50% {
     opacity: 0;
   }
+}
+
+.overlay.overlay-story.overlay-tutorial {
+  z-index: 37;
+  background: transparent;
+  pointer-events: none;
+  overflow: hidden;
+  padding: 0;
+  justify-content: center;
+  cursor: default;
+}
+
+.overlay.overlay-story.overlay-tutorial.is-dialogue-top {
+  justify-content: flex-start;
+}
+
+.overlay.overlay-story.overlay-tutorial.is-dialogue-bottom {
+  justify-content: flex-end;
+}
+
+.overlay-tutorial.is-dialogue-above .story-stage {
+  position: absolute;
+  left: 0;
+  right: 0;
+  padding: 0 14px;
+}
+
+.overlay-tutorial .story-skip,
+.overlay-tutorial .story-dialogue,
+.overlay-tutorial .tutorial-pane,
+.overlay-tutorial .tutorial-hole-catch {
+  pointer-events: auto;
+}
+
+.overlay-tutorial .story-dialogue {
+  height: auto;
+  min-height: 0;
+}
+
+.overlay-tutorial .tutorial-text-stack {
+  position: relative;
+}
+
+.overlay-tutorial .tutorial-text-sizer {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.overlay-tutorial .tutorial-text-sizer::after {
+  content: none;
+}
+
+.overlay-tutorial .tutorial-text-live {
+  position: absolute;
+  inset: 0;
+}
+
+.overlay-tutorial .story-hint {
+  margin-top: 4px;
+}
+
+.overlay-tutorial.is-silent .story-stage {
+  display: none;
+}
+
+.overlay-tutorial.is-idle .tutorial-pane,
+.overlay-tutorial.is-idle .tutorial-hole-catch,
+.overlay-tutorial.is-idle .story-skip,
+.overlay-tutorial.is-idle .story-dialogue {
+  pointer-events: none;
+}
+
+.tutorial-pane {
+  position: absolute;
+  z-index: 1;
+  cursor: pointer;
+}
+
+.tutorial-pulse {
+  position: absolute;
+  z-index: 2;
+  pointer-events: none;
+  box-shadow:
+    0 0 0 3px rgba(255, 209, 102, 0.95),
+    0 0 16px rgba(255, 209, 102, 0.5),
+    0 0 0 9999px rgba(8, 4, 12, 0.72);
+  animation: tutorialPulse 1.35s ease-in-out infinite;
+}
+
+.overlay-tutorial.is-no-pulse .tutorial-pulse {
+  animation: none;
+  box-shadow: 0 0 0 9999px rgba(8, 4, 12, 0.72);
+}
+
+.tutorial-hole-catch {
+  position: absolute;
+  z-index: 2;
+  cursor: pointer;
+}
+
+.overlay-tutorial:not(.is-tap-advance) .tutorial-pane {
+  cursor: default;
+}
+
+@keyframes tutorialPulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 3px rgba(255, 209, 102, 0.95),
+      0 0 14px rgba(255, 209, 102, 0.4),
+      0 0 0 9999px rgba(8, 4, 12, 0.72);
+  }
+  50% {
+    box-shadow:
+      0 0 0 9px rgba(255, 209, 102, 0.28),
+      0 0 28px rgba(255, 209, 102, 0.85),
+      0 0 0 9999px rgba(8, 4, 12, 0.72);
+  }
+}
+
+.overlay-tutorial.is-tight-pulse .tutorial-pulse {
+  animation-name: tutorialPulseTight;
+}
+
+@keyframes tutorialPulseTight {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 2px rgba(255, 209, 102, 0.95),
+      0 0 8px rgba(255, 209, 102, 0.4),
+      0 0 0 9999px rgba(8, 4, 12, 0.72);
+  }
+  50% {
+    box-shadow:
+      0 0 0 4px rgba(255, 209, 102, 0.35),
+      0 0 10px rgba(255, 209, 102, 0.7),
+      0 0 0 9999px rgba(8, 4, 12, 0.72);
+  }
+}
+
+.overlay-tutorial .story-stage {
+  position: relative;
+  z-index: 3;
+  pointer-events: none;
+  padding: calc(var(--safe-top) + 8px) 14px calc(var(--safe-bottom) + 18px);
+}
+
+.overlay-tutorial .story-skip {
+  z-index: 4;
+}
+
+.skill-tree.is-tour-locked,
+.overlay .skill-tree.is-tour-locked.interactive {
+  cursor: default;
 }
 
 .overlay-shop {
@@ -2672,6 +2925,14 @@ html:not(.is-handheld) .aim-joystick {
   filter: drop-shadow(0 6px 0 rgba(120, 16, 40, 0.45));
 }
 
+.overlay-lose .sub {
+  line-height: 1.45;
+}
+
+.overlay-lose .lose-recap {
+  margin-bottom: 22px;
+}
+
 .ticket-payout {
   display: flex;
   flex-direction: column;
@@ -2745,6 +3006,7 @@ html:not(.is-handheld) .aim-joystick {
 
 .panel-ticket-shop .sub {
   margin: 0;
+  line-height: 1.45;
 }
 
 .ticket-shop-balance {

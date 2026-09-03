@@ -1,5 +1,5 @@
 import type { GameState } from "../game/GameState";
-import { ORDER_CURRENCY, orderCurrencyName } from "../game/balance";
+import { orderCurrencyName } from "../game/balance";
 import { TICKET_UPGRADES } from "../game/ticketShop";
 import { formatNumber } from "../util/math";
 
@@ -52,15 +52,14 @@ export class TicketShopScreen {
   }
 
   private build(): void {
-    const noun = ORDER_CURRENCY.name;
     this.el.innerHTML = `
       <div class="panel panel-ticket-shop">
         <h1>Ticket Shop</h1>
-        <p class="sub">${noun} stay with you. Spend them on upgrades that last across runs.</p>
+        <p class="sub">Tickets and their purchases are permanent and persist through runs. Purchase different upgrades to come back stronger in your next run.</p>
         <div class="ticket-shop-balance" data-balance></div>
         <div class="ticket-shop-list" data-list></div>
         <p class="ticket-shop-soon">MORE COMING SOON...</p>
-        <button class="btn btn-primary interactive" data-continue>Continue</button>
+        <button class="btn btn-primary interactive" data-continue>START RUN ${this.state?.nextRunNumber() ?? 2}</button>
       </div>
     `;
     this.el.querySelector("[data-continue]")!.addEventListener("click", () => {

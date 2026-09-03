@@ -185,6 +185,8 @@ export class GameState {
   ticketProgress = 0;
   /** Tickets granted this run — shown on the lose payout HUD. */
   ticketsEarnedThisRun = 0;
+  /** 1-based run index. Persists; the post-loss shop offers START RUN N+1. */
+  runNumber = 1;
   /** Permanent ticket-shop upgrades. Persists across runs. */
   ticketUpgrades: Record<string, number> = emptyTicketUpgradeLevels();
   /** Index into FIESTA_ORDERS — independent of round so early rounds can skip orders. */
@@ -268,6 +270,8 @@ export class GameState {
     this.round = 1;
     this.candy = 0;
     this.roundCandy = 0;
+    this.runNumber += 1;
+    this.persistTickets();
     this.ticketProgress = 0;
     this.ticketsEarnedThisRun = 0;
     this.orderIndex = 0;
@@ -1020,13 +1024,30 @@ export class GameState {
     const save = loadTicketShopSave();
     this.tickets = save.tickets;
     this.ticketUpgrades = save.upgrades;
+    this.runNumber = save.runNumber;
   }
 
   persistTickets(): void {
     saveTicketShopSave({
       tickets: this.tickets,
       upgrades: this.ticketUpgrades,
+      runNumber: this.runNumber,
     });
+  }
+
+  /** Candy actually paid into Fiesta orders this run. */
+  candyPaidThisRun(): number {
+    return this.ticketsEarnedThisRun * ORDER_CURRENCY.candyPerUnit + this.ticketProgress;
+  }
+
+  /** Orders fully paid this run (unpaid due orders do not count). */
+  ordersCompletedThisRun(): number {
+    return this.orderIndex + (this.finalOrderPaid ? 1 : 0);
+  }
+
+  /** Run the player will start after this one. */
+  nextRunNumber(): number {
+    return this.runNumber + 1;
   }
 
   ticketUpgradeLevel(id: string): number {
@@ -1167,6 +1188,10 @@ export class GameState {
         this.totalCandyEarned += bonus;
         this.syncUnlockBaselines();
       }
+    }
+    // Round 1 AFK / no loot: still bank enough candy to buy Harder Hits.
+    if (this.round === 1 && this.roundStats.candyEarned === 0) {
+      this.grantCandy(BASE.round1PityCandy);
     }
     // Bank smash loot (+ perfect-aim bonus) when the round-complete UI appears.
     this.candy += this.roundCandy;

@@ -39,7 +39,9 @@ import { BootScreen, spawnCandyFloatText, spawnFloatText } from "../ui/BootScree
 import { ShopScreen } from "../ui/ShopScreen";
 import { SettingsScreen } from "../ui/SettingsScreen";
 import { StoryScreen, FIRST_KID_STORY } from "../ui/StoryScreen";
+import { TutorialOverlay } from "../ui/TutorialOverlay";
 import { CandyBalance } from "../ui/CandyBalance";
+import { hasCompletedRound1Tutorial, markRound1TutorialComplete } from "./tutorialProgress";
 import { rng } from "../util/rng";
 import { clamp, formatNumber } from "../util/math";
 import type { UpgradeId } from "./balance";
@@ -96,6 +98,9 @@ export class Game {
   private shop: ShopScreen;
   private settings: SettingsScreen;
   private story: StoryScreen;
+  private tutorial: TutorialOverlay;
+  /** True after the round-1 coach marks are skipped, finished, or already seen. */
+  private round1TutorialDone = hasCompletedRound1Tutorial();
   private uiRoot: HTMLElement;
   private canvas: HTMLCanvasElement;
   private assetsReady: Promise<void>;
@@ -224,6 +229,7 @@ export class Game {
     this.shop = new ShopScreen(uiRoot);
     this.settings = new SettingsScreen(uiRoot);
     this.story = new StoryScreen(uiRoot);
+    this.tutorial = new TutorialOverlay(uiRoot);
 
     this.bindInput();
     requestAnimationFrame(() => this.onResize());
@@ -528,6 +534,7 @@ export class Game {
     this.shop.hide();
     this.settings.hide();
     this.story.hide();
+    this.tutorial.hide();
   }
 
   private finishRound(): void {
@@ -584,14 +591,157 @@ export class Game {
     this.roundEnd.show(this.state, {
       onUpgrades: () => this.afterRoundEnd(),
       onOrders: () => this.openOrderScreen({ hideHud: true }),
-      onContinue: () => this.openDueOrderOrContinue(),
+      onContinue: () => {
+        if (this.tutorial.isActive()) this.dismissRound1Tutorial();
+        this.openDueOrderOrContinue();
+      },
+      onLevelsToggle: (open) => {
+        if (!this.tutorial.isActive()) return;
+        if (open) this.showFirstPinataTutorial();
+        else this.showNextRoundTutorial();
+      },
+      onPinataDetail: (open) => {
+        if (!this.tutorial.isActive()) return;
+        if (open) this.showPinataStatsTutorial();
+        else this.showLevelsCloseTutorial();
+      },
     });
+    if (!this.tutorial.isActive()) this.maybeBeginRound1Tutorial();
+  }
+
+  private maybeBeginRound1Tutorial(): void {
+    if (
+      this.round1TutorialDone ||
+      hasCompletedRound1Tutorial() ||
+      this.state.round !== 1 ||
+      this.state.hasUpgrade("power")
+    ) {
+      return;
+    }
+    const earned = this.state.roundStats.candyEarned + this.state.roundStats.accuracyBonus;
+    this.tutorial.show({
+      text: `Well done! You just got ${formatNumber(earned)} candy.`,
+      target: () => this.candyBalance.el,
+      tapToAdvance: true,
+      onAdvance: () => this.showUpgradeButtonTutorial(),
+      onSkip: () => this.dismissRound1Tutorial(),
+      onUi: () => this.audio.ui(),
+    });
+  }
+
+  private showUpgradeButtonTutorial(): void {
+    this.tutorial.show({
+      text: "Let's buy your first upgrade! A bit more damage won't hurt.",
+      target: () => this.roundEnd.upgradesButton(),
+      tapToAdvance: false,
+      doneHint: "",
+      onSkip: () => this.dismissRound1Tutorial(),
+      onUi: () => this.audio.ui(),
+    });
+  }
+
+  private showHarderHitsTutorial(): void {
+    this.upgrades.setTourLock(true);
+    this.upgrades.setTourAllowBack(false);
+    this.tutorial.show({
+      target: () => this.upgrades.upgradeNode("power"),
+      tapToAdvance: false,
+      onSkip: () => this.dismissRound1Tutorial(),
+      onUi: () => this.audio.ui(),
+    });
+  }
+
+  private showBackButtonTutorial(): void {
+    this.upgrades.setTourLock(true);
+    this.upgrades.setTourAllowBack(true);
+    this.tutorial.show({
+      text: "Well done! Now let's go back.",
+      target: () => this.upgrades.backButton(),
+      tapToAdvance: false,
+      doneHint: "",
+      onSkip: () => this.dismissRound1Tutorial(),
+      onUi: () => this.audio.ui(),
+    });
+  }
+
+  private showUnlockChipTutorial(): void {
+    this.tutorial.show({
+      text: "Here you can see your progress on unlocking the next Piñata type.",
+      target: () => this.roundEnd.unlockChip(),
+      dialoguePlace: "above-target",
+      tapToAdvance: true,
+      onAdvance: () => this.showPinataLevelsButtonTutorial(),
+      onSkip: () => this.dismissRound1Tutorial(),
+      onUi: () => this.audio.ui(),
+    });
+  }
+
+  private showPinataLevelsButtonTutorial(): void {
+    this.tutorial.show({
+      text: "Let's see the stats of the first piñata",
+      target: () => this.roundEnd.levelsButton(),
+      tapToAdvance: false,
+      doneHint: "",
+      onSkip: () => this.dismissRound1Tutorial(),
+      onUi: () => this.audio.ui(),
+    });
+  }
+
+  private showFirstPinataTutorial(): void {
+    this.tutorial.show({
+      target: () => this.roundEnd.firstLevelRow(),
+      pad: 2,
+      tightPulse: true,
+      tapToAdvance: false,
+      onSkip: () => this.dismissRound1Tutorial(),
+      onUi: () => this.audio.ui(),
+    });
+  }
+
+  private showPinataStatsTutorial(): void {
+    this.tutorial.show({
+      target: () => this.roundEnd.pinataDetailPanel(),
+      pulse: false,
+      tapToAdvance: false,
+      onSkip: () => this.dismissRound1Tutorial(),
+      onUi: () => this.audio.ui(),
+    });
+  }
+
+  private showLevelsCloseTutorial(): void {
+    this.tutorial.show({
+      target: () => this.roundEnd.levelsCloseButton(),
+      tapToAdvance: false,
+      onSkip: () => this.dismissRound1Tutorial(),
+      onUi: () => this.audio.ui(),
+    });
+  }
+
+  private showNextRoundTutorial(): void {
+    this.tutorial.show({
+      text: "Good job, now let's start the next round!",
+      target: () => this.roundEnd.continueButton(),
+      tapToAdvance: false,
+      doneHint: "",
+      onSkip: () => this.dismissRound1Tutorial(),
+      onUi: () => this.audio.ui(),
+    });
+  }
+
+  private dismissRound1Tutorial(): void {
+    this.round1TutorialDone = true;
+    markRound1TutorialComplete();
+    this.upgrades.setTourLock(false);
+    this.tutorial.hide();
+    this.roundEnd.closeLevelsHud();
   }
 
   private afterRoundEnd(): void {
     this.roundEnd.hide();
     this.orderPrep.hide();
+    const continueTutorial = this.tutorial.isActive();
     this.openUpgradeScreen();
+    if (continueTutorial) this.showHarderHitsTutorial();
   }
 
   private openUpgradeScreen(): void {
@@ -605,10 +755,15 @@ export class Game {
         if (this.state.buyUpgrade(id)) {
           this.audio.ui();
           this.syncCandyUi();
+          if (this.tutorial.isActive() && id === "power") {
+            this.showBackButtonTutorial();
+          }
         }
       },
       onBack: () => {
+        const continueTutorial = this.tutorial.isActive();
         this.presentRoundEnd();
+        if (continueTutorial) this.showUnlockChipTutorial();
       },
     });
   }
@@ -628,6 +783,7 @@ export class Game {
       this.upgrades.hide();
       this.orderPrep.hide();
       this.candyBalance.hide();
+      this.tutorial.hide();
       this.story.show({
         lines: FIRST_KID_STORY,
         doneHint: "Tap",
@@ -713,6 +869,7 @@ export class Game {
     this.aimStick.hide();
     this.candyBalance.hide();
     this.summary.hide();
+    this.tutorial.hide();
     this.state.endRunEarly();
     this.state.persistTickets();
     this.lose.show(this.state, () => {
@@ -740,6 +897,8 @@ export class Game {
   }
 
   private restart(): void {
+    this.round1TutorialDone = true;
+    markRound1TutorialComplete();
     this.state.bankRunCandy();
     this.state.resetRun();
     this.clearPinatas();
@@ -757,6 +916,7 @@ export class Game {
     this.aimStick.hide();
     this.settings.hide();
     this.story.hide();
+    this.tutorial.hide();
     this.showBootScreen();
   }
 
@@ -766,6 +926,7 @@ export class Game {
     this.settings.hide();
     this.candyBalance.hide();
     this.story.hide();
+    this.tutorial.hide();
     this.boot.show(
       () => {
         void (async () => {

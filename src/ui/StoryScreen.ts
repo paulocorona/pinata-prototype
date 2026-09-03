@@ -7,7 +7,7 @@ const STORY_LINES = [
 ];
 
 export const FIRST_KID_STORY = [
-  "The first kid is coming soon! Save some candy for him.\nIf you don't have enough money to give to a kid, you'll lose.",
+  "The first kid is coming soon! Save some candy for him.\nIf you don't have enough candy to give to a kid, you'll lose.",
 ];
 
 const TYPE_MS = 22;

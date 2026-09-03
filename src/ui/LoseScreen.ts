@@ -1,6 +1,10 @@
 import type { GameState } from "../game/GameState";
-import { orderCurrencyName } from "../game/balance";
+import { ORDER_CURRENCY } from "../game/balance";
 import { formatNumber } from "../util/math";
+
+function countNoun(count: number, singular: string, plural: string): string {
+  return count === 1 ? singular : plural;
+}
 
 /** Shown when a Fiesta order comes due unpaid — payout for bills paid this run. */
 export class LoseScreen {
@@ -13,20 +17,16 @@ export class LoseScreen {
   }
 
   show(state: GameState, onContinue: () => void): void {
-    const earned = state.ticketsEarnedThisRun;
-    const noun = orderCurrencyName(earned);
+    const candy = state.candyPaidThisRun();
+    const kids = state.ordersCompletedThisRun();
+    const tickets = state.ticketsEarnedThisRun;
+    const kidsNoun = countNoun(kids, "kid", "kids");
+    const ticketNoun = countNoun(tickets, "ticket", "tickets");
     this.el.innerHTML = `
       <div class="panel boot-title">
         <div class="brand brand-lose">YOU LOSE</div>
-        <p class="sub">The kids went home with empty bags. A Fiesta Order came due unpaid.</p>
-        <div class="ticket-payout">
-          <div class="ticket-payout-label">Earned this run for paying those bills</div>
-          <div class="ticket-payout-row">
-            <span class="ticket-icon" aria-hidden="true"></span>
-            <span class="ticket-payout-value">${formatNumber(earned)}</span>
-          </div>
-          <div class="ticket-payout-noun">${noun}</div>
-        </div>
+        <p class="sub">The kids went home crying, with empty candy bags.</p>
+        <p class="sub lose-recap">But you gave ${formatNumber(candy)} candy to ${formatNumber(kids)} ${kidsNoun}. That gives you a total of ${formatNumber(tickets)} ${ticketNoun}. You get 1 ticket for each $${ORDER_CURRENCY.candyPerUnit} candy given to kids.</p>
         <button class="btn btn-primary interactive" data-continue>Continue</button>
       </div>
     `;

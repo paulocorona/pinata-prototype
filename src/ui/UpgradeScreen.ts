@@ -75,6 +75,8 @@ export class UpgradeScreen {
   private zoom = 1;
   private keepPan = false;
   private suppressClick = false;
+  private tourLock = false;
+  private tourAllowBack = false;
 
   constructor(root: HTMLElement) {
     this.el = document.createElement("div");
@@ -230,22 +232,48 @@ export class UpgradeScreen {
         }
         ev.stopPropagation();
         const id = (btn as HTMLElement).dataset.upgrade as UpgradeId;
+        if (this.tourLock && id !== "power") return;
         this.onBuy?.(id);
         this.keepPan = true;
         this.render();
       });
     });
     this.el.querySelector("[data-back]")!.addEventListener("click", () => {
+      if (this.tourLock && !this.tourAllowBack) return;
       this.hide();
       this.onBack?.();
     });
 
     this.bindTreePan();
     this.bindNodeTooltips();
+    this.applyTourLockClass();
     if (!this.keepPan) this.fitVisibleTree();
     else this.clampPan();
     this.applyPan();
     this.keepPan = false;
+  }
+
+  upgradeNode(id: UpgradeId): HTMLElement | null {
+    return this.el.querySelector(`[data-upgrade="${id}"]`);
+  }
+
+  backButton(): HTMLElement | null {
+    return this.el.querySelector("[data-back]");
+  }
+
+  setTourLock(on: boolean): void {
+    this.tourLock = on;
+    if (!on) this.tourAllowBack = false;
+    if (on) this.hideTooltip();
+    this.applyTourLockClass();
+  }
+
+  setTourAllowBack(on: boolean): void {
+    this.tourAllowBack = on;
+  }
+
+  private applyTourLockClass(): void {
+    this.el.querySelector("[data-skill-tree]")?.classList.toggle("is-tour-locked", this.tourLock);
   }
 
   /** Purchased nodes, tree roots, and locked nodes adjacent to a purchase. */
@@ -283,6 +311,7 @@ export class UpgradeScreen {
     };
 
     const beginPinch = (a: Touch, b: Touch): void => {
+      if (this.tourLock) return;
       pinching = true;
       dragging = false;
       pointerId = null;
@@ -382,7 +411,7 @@ export class UpgradeScreen {
     };
 
     viewport.addEventListener("pointerdown", (ev) => {
-      if (ev.button !== 0 || pinching) return;
+      if (this.tourLock || ev.button !== 0 || pinching) return;
       this.suppressClick = false;
       pointerId = ev.pointerId;
       dragging = false;
@@ -425,6 +454,11 @@ export class UpgradeScreen {
     viewport.addEventListener(
       "wheel",
       (ev) => {
+        if (this.tourLock) {
+          ev.preventDefault();
+          ev.stopPropagation();
+          return;
+        }
         ev.preventDefault();
         ev.stopPropagation();
         this.hideTooltip();
@@ -452,6 +486,7 @@ export class UpgradeScreen {
     this.el.querySelectorAll("[data-upgrade]").forEach((btn) => {
       const node = btn as HTMLElement;
       node.addEventListener("pointerenter", () => {
+        if (this.tourLock) return;
         this.showTooltip(node);
       });
       node.addEventListener("pointerleave", () => {
@@ -580,6 +615,7 @@ export class UpgradeScreen {
 
   hide(): void {
     this.hideTooltip();
+    this.setTourLock(false);
     this.el.classList.add("hidden");
   }
 }
