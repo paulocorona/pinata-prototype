@@ -89,6 +89,11 @@ export class CameraRig {
     return { minX, maxX, minY, maxY };
   }
 
+  /** World point on a Z plane for an NDC screen coordinate. */
+  worldAtNdc(ndcX: number, ndcY: number, planeZ: number): THREE.Vector3 {
+    return this.intersectZ(ndcX, ndcY, planeZ);
+  }
+
   private intersectZ(ndcX: number, ndcY: number, planeZ: number): THREE.Vector3 {
     const cam = this.active;
     this.ndcPoint.set(ndcX, ndcY, 0.5).unproject(cam);

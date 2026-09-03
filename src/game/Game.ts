@@ -61,6 +61,11 @@ const ROUND_GO_HOLD_SEC = 0.5;
 const WARMUP_DROP_Y = 1.85;
 /** Consider another pinata "nearby" for depth packing within this XY radius. */
 const SPAWN_Z_NEAR_XY = 2.6;
+/** Matches `.aim-joystick` hit box; used when the stick is `display: none`. */
+const JOYSTICK_HIT_PX = 132;
+const JOYSTICK_BOTTOM_PX = 20;
+/** Extra screen gap so hanging bodies stay off the joystick. */
+const JOYSTICK_KEEPOUT_PAD_PX = 52;
 
 export class Game {
   private renderer: THREE.WebGLRenderer;
@@ -325,6 +330,44 @@ export class Game {
     const spanY = Math.max(0.4, box.maxY - box.minY);
     this.movement.travelRangeX = spanX * 0.18;
     this.movement.travelRangeY = spanY * 0.32;
+    this.syncJoystickKeepout();
+  }
+
+  /** Mobile joystick: keep piñatas off the stick. Slide/drag: full play bounds. */
+  private syncJoystickKeepout(): void {
+    if (!isHandheld() || getAimMode() !== "joystick") {
+      this.movement.clearAvoid();
+      return;
+    }
+    const circle = this.joystickScreenCircle();
+    const ndcX = (circle.x / this.width) * 2 - 1;
+    const ndcY = -((circle.y / this.height) * 2 - 1);
+    const center = this.cameraRig.worldAtNdc(ndcX, ndcY, PLAY_Z);
+    const ndcR = (circle.r / Math.max(1, this.height)) * 2;
+    const rim = this.cameraRig.worldAtNdc(ndcX, ndcY + ndcR, PLAY_Z);
+    this.movement.setAvoid(center.x, center.y, Math.hypot(rim.x - center.x, rim.y - center.y));
+  }
+
+  private joystickScreenCircle(): { x: number; y: number; r: number } {
+    const stick = this.aimStick.el;
+    if (!stick.classList.contains("hidden")) {
+      const rect = stick.getBoundingClientRect();
+      const local = localPointFromClient(
+        this.canvas,
+        rect.left + rect.width * 0.5,
+        rect.top + rect.height * 0.5,
+      );
+      return {
+        x: local.x,
+        y: local.y,
+        r: Math.max(rect.width, rect.height) * 0.5 + JOYSTICK_KEEPOUT_PAD_PX,
+      };
+    }
+    return {
+      x: this.width * 0.5,
+      y: this.height - JOYSTICK_BOTTOM_PX - JOYSTICK_HIT_PX * 0.5,
+      r: JOYSTICK_HIT_PX * 0.5 + JOYSTICK_KEEPOUT_PAD_PX,
+    };
   }
 
   private clearPinatas(): void {
@@ -357,12 +400,14 @@ export class Game {
     const minSep2 = minSep * minSep;
     const { minZSep } = this.spawnZRange();
 
-    let x = rng.range(minX, maxX) * 0.85;
+    let x = rng.range(minX, maxX) * (this.movement.avoidRadius > 0 ? 1 : 0.85);
     let y = rng.range(minY, maxY);
     let z = this.pickSpawnZ(x, y);
+    const bodyR = PINATA_HIT_RADIUS_WORLD;
     for (let attempt = 0; attempt < 36; attempt++) {
       const cx = rng.range(minX, maxX);
       const cy = rng.range(minY, maxY);
+      if (this.movement.blocksHome(cx, cy, bodyR)) continue;
       const cz = this.pickSpawnZ(cx, cy);
       const clear = this.pinatas.every((p) => {
         if (!p.alive) return true;
@@ -377,6 +422,14 @@ export class Game {
         z = cz;
         break;
       }
+    }
+    if (this.movement.blocksHome(x, y, bodyR)) {
+      y = THREE.MathUtils.clamp(
+        this.movement.avoidY + this.movement.avoidRadius + bodyR * 1.8,
+        minY,
+        maxY,
+      );
+      z = this.pickSpawnZ(x, y);
     }
 
     return new THREE.Vector3(x, y, z);
@@ -547,6 +600,7 @@ export class Game {
     this.reticle.setLocked(false);
     this.reticle.show();
     this.syncAimStick();
+    this.syncPlayBounds();
     this.beginWarmup();
     this.roundEnd.hide();
     this.unlockPopup.hide();
@@ -1415,6 +1469,7 @@ export class Game {
     if (inArena) {
       this.reticle.show();
       this.syncAimStick();
+      this.syncJoystickKeepout();
       const hitRadius = this.state.getHitRadius();
       const target = this.targeting.update(
         scaledDt,

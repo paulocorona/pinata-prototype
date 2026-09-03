@@ -25,8 +25,31 @@ export class PinataMovement {
   boundMaxX = MOVEMENT_DEFAULTS.boundMaxX;
   boundMinY = MOVEMENT_DEFAULTS.boundMinY;
   boundMaxY = MOVEMENT_DEFAULTS.boundMaxY;
+  /** World-space keep-out (joystick). Radius 0 disables. */
+  avoidX = 0;
+  avoidY = 0;
+  avoidRadius = 0;
 
   private tmp = new THREE.Vector3();
+
+  clearAvoid(): void {
+    this.avoidRadius = 0;
+  }
+
+  setAvoid(x: number, y: number, radius: number): void {
+    this.avoidX = x;
+    this.avoidY = y;
+    this.avoidRadius = Math.max(0, radius);
+  }
+
+  /** True when a hang-point would put a body over the keep-out. */
+  blocksHome(x: number, y: number, bodyRadius: number): boolean {
+    if (this.avoidRadius <= 0) return false;
+    const dx = x - this.avoidX;
+    const dy = y - bodyRadius * 0.9 - this.avoidY;
+    const min = this.avoidRadius + bodyRadius;
+    return dx * dx + dy * dy < min * min;
+  }
 
   update(pinatas: PinataEntity[], dt: number, movementMultiplier: number): void {
     const hs = this.horizontalSpeed * movementMultiplier;
@@ -90,6 +113,9 @@ export class PinataMovement {
       const pad = p.hitRadiusWorld * 0.9;
       this.tmp.x = THREE.MathUtils.clamp(this.tmp.x, this.boundMinX + pad, this.boundMaxX - pad);
       this.tmp.y = THREE.MathUtils.clamp(this.tmp.y, this.boundMinY + pad, this.boundMaxY - pad);
+      this.repelFromAvoid(p.bodyRadiusXY);
+      this.tmp.x = THREE.MathUtils.clamp(this.tmp.x, this.boundMinX + pad, this.boundMaxX - pad);
+      this.tmp.y = THREE.MathUtils.clamp(this.tmp.y, this.boundMinY + pad, this.boundMaxY - pad);
       this.tmp.y += p.dropY;
 
       p.group.position.lerp(this.tmp, 1 - Math.exp(-8 * dt));
@@ -134,5 +160,25 @@ export class PinataMovement {
         applyLowHpOrIdleTint(p);
       }
     }
+  }
+
+  /** Push hanging bodies out of a world-space keep-out (mobile joystick). */
+  private repelFromAvoid(bodyRadius: number): void {
+    if (this.avoidRadius <= 0) return;
+    const bodyY = this.tmp.y - bodyRadius * 0.9;
+    const dx = this.tmp.x - this.avoidX;
+    const dy = bodyY - this.avoidY;
+    const minDist = this.avoidRadius + bodyRadius;
+    const d2 = dx * dx + dy * dy;
+    if (d2 >= minDist * minDist) return;
+    const d = Math.sqrt(d2);
+    if (d < 1e-5) {
+      this.tmp.y += minDist;
+      return;
+    }
+    const push = (minDist - d) / d;
+    this.tmp.x += dx * push;
+    this.tmp.y += dy * push;
+    if (dy < 0) this.tmp.y += minDist - d;
   }
 }
