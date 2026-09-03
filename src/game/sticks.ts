@@ -163,3 +163,12 @@ export function saveStickShopSave(save: StickShopSave): void {
     // Ignore quota / private-mode failures.
   }
 }
+
+export function clearStickShopSave(): void {
+  equippedId = DEFAULT_STICK_ID;
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // Ignore private-mode failures.
+  }
+}

@@ -15,3 +15,11 @@ export function markRound1TutorialComplete(): void {
     /* private mode / quota */
   }
 }
+
+export function clearRound1Tutorial(): void {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    /* private mode / quota */
+  }
+}

@@ -124,3 +124,11 @@ export function saveTicketShopSave(save: TicketShopSave): void {
     // Ignore quota / private-mode failures.
   }
 }
+
+export function clearTicketShopSave(): void {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // Ignore private-mode failures.
+  }
+}

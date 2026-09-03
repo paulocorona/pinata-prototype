@@ -1,7 +1,26 @@
 import { Game } from "./game/Game";
 import { fitPhoneFrame, installPortraitLock } from "./deviceFrame";
+import { clearStickShopSave } from "./game/sticks";
+import { clearTicketShopSave } from "./game/ticketShop";
+import { clearRound1Tutorial } from "./game/tutorialProgress";
 import { applyOrderHudLayout, ORDER_HUD_LAYOUT } from "./ui/orderHudLayout";
 import { applyAssetCssVars } from "./util/assetUrl";
+
+const PROGRESS_WIPE_FLAG = "pinata-fresh-start-2026-09-03";
+
+function wipePersistedProgressOnce(): void {
+  try {
+    if (localStorage.getItem(PROGRESS_WIPE_FLAG) === "1") return;
+    clearTicketShopSave();
+    clearStickShopSave();
+    clearRound1Tutorial();
+    localStorage.setItem(PROGRESS_WIPE_FLAG, "1");
+  } catch {
+    // Ignore private-mode / quota failures.
+  }
+}
+
+wipePersistedProgressOnce();
 
 applyAssetCssVars();
 applyOrderHudLayout(ORDER_HUD_LAYOUT);
