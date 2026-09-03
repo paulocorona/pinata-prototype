@@ -546,6 +546,7 @@ export class Game {
     // Brief beat then tally
     window.setTimeout(() => {
       this.state.endRound();
+      this.state.persistRun();
       this.hud.hide();
       this.reticle.hide();
       this.aimStick.hide();
@@ -600,7 +601,7 @@ export class Game {
       },
       onHome: () => {
         this.audio.ui();
-        this.restart();
+        this.goToMainMenu();
       },
       onLevelsToggle: (open) => {
         if (!this.tutorial.isActive()) return;
@@ -941,6 +942,46 @@ export class Game {
     this.showBootScreen();
   }
 
+  private goToMainMenu(): void {
+    this.state.persistRun();
+    this.clearPinatas();
+    this.candyBalance.hide();
+    this.roundEnd.hide();
+    this.unlockPopup.hide();
+    this.upgrades.hide();
+    this.orderPrep.hide();
+    this.hud.hide();
+    this.reticle.hide();
+    this.aimStick.hide();
+    this.summary.hide();
+    this.lose.hide();
+    this.ticketShop.hide();
+    this.shop.hide();
+    this.settings.hide();
+    this.story.hide();
+    this.tutorial.hide();
+    this.showBootScreen();
+  }
+
+  private continueSavedRun(): void {
+    void (async () => {
+      await this.assetsReady;
+      void this.audio.unlock();
+      this.boot.hide();
+      this.syncWeaponStick();
+      this.syncCandyUi();
+      if (this.state.phase === "roundEnd" || this.state.phase === "betweenRounds") {
+        this.presentRoundEnd();
+        return;
+      }
+      if (this.state.phase === "runSummary") {
+        this.summary.show(this.state, () => this.restart());
+        return;
+      }
+      this.startRound();
+    })();
+  }
+
   private startNextRun(): void {
     this.resetForNewRun();
     this.boot.hide();
@@ -957,8 +998,13 @@ export class Game {
     this.candyBalance.hide();
     this.story.hide();
     this.tutorial.hide();
+    const continueRound = this.state.hasSavedRun() ? this.state.round : undefined;
     this.boot.show(
       () => {
+        if (this.state.hasSavedRun()) {
+          this.continueSavedRun();
+          return;
+        }
         void (async () => {
           await this.assetsReady;
           void this.audio.unlock();
@@ -970,6 +1016,7 @@ export class Game {
       },
       () => this.openShop(),
       () => this.openSettings(),
+      continueRound,
     );
   }
 

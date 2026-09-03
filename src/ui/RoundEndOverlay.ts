@@ -191,11 +191,38 @@ export class RoundEndOverlay {
       this.onContinue?.();
     });
     this.el.querySelector("[data-home]")?.addEventListener("click", () => {
-      this.hide();
-      this.onHome?.();
+      this.showHomeConfirm();
     });
     this.bindLevelHud();
     this.applyLockedSilhouettes();
+  }
+
+  private showHomeConfirm(): void {
+    const existing = this.el.querySelector("[data-home-confirm]");
+    existing?.remove();
+
+    const confirm = document.createElement("div");
+    confirm.className = "round-end-home-confirm";
+    confirm.dataset.homeConfirm = "";
+    confirm.innerHTML = `
+      <div class="panel panel-round-end-confirm">
+        <p class="round-end-home-confirm-copy">Go back to main screen?</p>
+        <button type="button" class="btn btn-primary interactive" data-home-yes>YES</button>
+        <button type="button" class="btn btn-secondary interactive" data-home-no>NO</button>
+      </div>
+    `;
+    this.el.appendChild(confirm);
+
+    const dismiss = () => confirm.remove();
+    confirm.querySelector("[data-home-yes]")?.addEventListener("click", () => {
+      dismiss();
+      this.hide();
+      this.onHome?.();
+    });
+    confirm.querySelector("[data-home-no]")?.addEventListener("click", dismiss);
+    confirm.addEventListener("click", (event) => {
+      if (event.target === confirm) dismiss();
+    });
   }
 
   upgradesButton(): HTMLElement | null {

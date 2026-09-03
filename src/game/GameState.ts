@@ -98,10 +98,12 @@ import {
 } from "./pinataLevels";
 import {
   captureUnlockCandy,
+  fullyRampedFirstSpawnRound,
   initialCandyAtUnlock,
   getUnlockProgress,
   newlyReachedUnlocks,
   reachedUnlockIds,
+  spawnCapForType,
   unlockedDefinedPinataTypes,
   unlockedPinataTypeCount as countUnlockedPinataTypes,
   type PinataUnlockDef,
@@ -127,6 +129,12 @@ import {
   ticketUpgradeById,
   TICKET_RING,
 } from "./ticketShop";
+import {
+  clearRunProgressSave,
+  loadRunProgressSave,
+  saveRunProgressSave,
+  type RunProgressSave,
+} from "./runProgress";
 
 export type Phase = "boot" | "warmup" | "roundActive" | "roundEnd" | "betweenRounds" | "runSummary";
 
@@ -222,6 +230,8 @@ export class GameState {
    * reached mid-round only appears on the following round.
    */
   spawnPinataTypes: PinataTypeId[] = ["basic"];
+  /** Smash round when each type first joined the spawn pool. */
+  firstSpawnRoundByType: Partial<Record<string, number>> = {};
   /** Ladder ids already unlocked when the current round began. */
   roundStartUnlockedIds: string[] = ["basic"];
   /** Types that crossed their goal during the round just ended. */
@@ -265,11 +275,131 @@ export class GameState {
   constructor() {
     this.restoreShop();
     this.restoreTickets();
+    this.tryRestoreRun();
+  }
+
+  hasSavedRun(): boolean {
+    return loadRunProgressSave() != null;
+  }
+
+  snapshotRun(): RunProgressSave {
+    return {
+      phase: this.phase,
+      round: this.round,
+      candy: this.candy,
+      roundCandy: this.roundCandy,
+      ticketProgress: this.ticketProgress,
+      ticketsEarnedThisRun: this.ticketsEarnedThisRun,
+      orderIndex: this.orderIndex,
+      orderContributed: this.orderContributed,
+      orderDueInRounds: this.orderDueInRounds,
+      ordersAssigned: this.ordersAssigned,
+      firstKidWarningPending: this.firstKidWarningPending,
+      nextOrderAwaitingRound: this.nextOrderAwaitingRound,
+      finalOrderPaid: this.finalOrderPaid,
+      upgrades: { ...this.upgrades },
+      stamina: this.stamina,
+      maxStamina: this.maxStamina,
+      combo: this.combo,
+      roundFirstHitUsed: this.roundFirstHitUsed,
+      bestBreakRate: this.bestBreakRate,
+      totalBreaks: this.totalBreaks,
+      totalBreaksByType: { ...this.totalBreaksByType },
+      totalCandyEarned: this.totalCandyEarned,
+      candyAtUnlock: [...this.candyAtUnlock],
+      spawnPinataTypes: [...this.spawnPinataTypes],
+      firstSpawnRoundByType: { ...this.firstSpawnRoundByType },
+      roundStartUnlockedIds: [...this.roundStartUnlockedIds],
+      newlyUnlockedThisRound: this.newlyUnlockedThisRound.map((u) => ({ ...u })),
+      totalHits: this.totalHits,
+      totalSwings: this.totalSwings,
+      stickHits: this.stickHits,
+      luckySevenHits: this.luckySevenHits,
+      comboSaverUsed: this.comboSaverUsed,
+      brightStartPending: this.brightStartPending,
+      secondWindUsed: this.secondWindUsed,
+      rockRainBlockedRemaining: this.rockRainBlockedRemaining,
+      lastStickHitType: this.lastStickHitType,
+      rageRemaining: this.rageRemaining,
+      consecutiveMisses: this.consecutiveMisses,
+      tantrumRemaining: this.tantrumRemaining,
+      secondWindBoostRemaining: this.secondWindBoostRemaining,
+      candyRainBank: this.candyRainBank,
+      staminaUsedThisRun: this.staminaUsedThisRun,
+      candyRainBreaks: this.candyRainBreaks,
+      roundStats: cloneRoundStats(this.roundStats),
+      history: this.history.map(cloneRoundStats),
+    };
+  }
+
+  applyRunSave(save: RunProgressSave): void {
+    this.phase = save.phase;
+    this.round = save.round;
+    this.candy = save.candy;
+    this.roundCandy = save.roundCandy;
+    this.ticketProgress = save.ticketProgress;
+    this.ticketsEarnedThisRun = save.ticketsEarnedThisRun;
+    this.orderIndex = save.orderIndex;
+    this.orderContributed = save.orderContributed;
+    this.orderDueInRounds = save.orderDueInRounds;
+    this.ordersAssigned = save.ordersAssigned;
+    this.firstKidWarningPending = save.firstKidWarningPending;
+    this.nextOrderAwaitingRound = save.nextOrderAwaitingRound;
+    this.finalOrderPaid = save.finalOrderPaid;
+    this.upgrades = { ...save.upgrades };
+    this.stamina = save.stamina;
+    this.maxStamina = save.maxStamina;
+    this.combo = save.combo;
+    this.roundFirstHitUsed = save.roundFirstHitUsed;
+    this.bestBreakRate = save.bestBreakRate;
+    this.totalBreaks = save.totalBreaks;
+    this.totalBreaksByType = { ...save.totalBreaksByType };
+    this.totalCandyEarned = save.totalCandyEarned;
+    this.candyAtUnlock = [...save.candyAtUnlock];
+    this.spawnPinataTypes = [...save.spawnPinataTypes];
+    this.firstSpawnRoundByType = { ...(save.firstSpawnRoundByType ?? {}) };
+    this.markKnownSpawnTypesFullyRamped();
+    this.roundStartUnlockedIds = [...save.roundStartUnlockedIds];
+    this.newlyUnlockedThisRound = save.newlyUnlockedThisRound.map((u) => ({ ...u }));
+    this.totalHits = save.totalHits;
+    this.totalSwings = save.totalSwings;
+    this.stickHits = save.stickHits;
+    this.luckySevenHits = save.luckySevenHits;
+    this.comboSaverUsed = save.comboSaverUsed;
+    this.brightStartPending = save.brightStartPending;
+    this.secondWindUsed = save.secondWindUsed;
+    this.rockRainBlockedRemaining = save.rockRainBlockedRemaining;
+    this.lastStickHitType = save.lastStickHitType;
+    this.rageRemaining = save.rageRemaining;
+    this.consecutiveMisses = save.consecutiveMisses;
+    this.tantrumRemaining = save.tantrumRemaining;
+    this.secondWindBoostRemaining = save.secondWindBoostRemaining;
+    this.candyRainBank = save.candyRainBank;
+    this.staminaUsedThisRun = save.staminaUsedThisRun;
+    this.candyRainBreaks = save.candyRainBreaks;
+    this.roundStats = cloneRoundStats(save.roundStats);
+    this.history = save.history.map(cloneRoundStats);
+  }
+
+  persistRun(): void {
+    if (this.phase === "boot") return;
+    saveRunProgressSave(this.snapshotRun());
+  }
+
+  private tryRestoreRun(): void {
+    const save = loadRunProgressSave();
+    if (!save) return;
+    this.applyRunSave(save);
+  }
+
+  clearRunSave(): void {
+    clearRunProgressSave();
   }
 
   resetRun(): void {
     this.runNumber += 1;
     this.persistTickets();
+    this.clearRunSave();
     this.clearRunProgress();
   }
 
@@ -277,6 +407,7 @@ export class GameState {
   wipeAllProgress(): void {
     clearTicketShopSave();
     clearStickShopSave();
+    clearRunProgressSave();
     this.restoreShop();
     this.restoreTickets();
     this.clearRunProgress();
@@ -307,6 +438,8 @@ export class GameState {
     this.totalCandyEarned = 0;
     this.candyAtUnlock = initialCandyAtUnlock();
     this.refreshSpawnPinataTypes();
+    this.firstSpawnRoundByType = {};
+    this.markKnownSpawnTypesFullyRamped();
     this.roundStartUnlockedIds = reachedUnlockIds(this.unlockStats());
     this.newlyUnlockedThisRound = [];
     this.totalHits = 0;

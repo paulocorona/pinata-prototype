@@ -2,6 +2,7 @@ import { assetUrl } from "../util/assetUrl";
 
 export class BootScreen {
   readonly el: HTMLElement;
+  private playButton: HTMLButtonElement;
 
   constructor(root: HTMLElement) {
     this.el = document.createElement("div");
@@ -17,8 +18,9 @@ export class BootScreen {
       </div>
     `;
     root.appendChild(this.el);
+    this.playButton = this.el.querySelector("[data-start]") as HTMLButtonElement;
 
-    this.el.querySelector("[data-start]")!.addEventListener("click", () => {
+    this.playButton.addEventListener("click", () => {
       this.hide();
       this.onStart?.();
     });
@@ -36,10 +38,29 @@ export class BootScreen {
   private onShop: (() => void) | null = null;
   private onSettings: (() => void) | null = null;
 
-  show(onStart: () => void, onShop: (() => void) | null, onSettings: () => void): void {
+  setPlayLabel(continueRound?: number): void {
+    const isContinue = continueRound != null && continueRound >= 1;
+    this.playButton.classList.toggle("is-continue", isContinue);
+    if (isContinue) {
+      this.playButton.innerHTML = `
+        <span class="boot-play-label">CONTINUE</span>
+        <span class="boot-play-round">Round ${continueRound}</span>
+      `;
+    } else {
+      this.playButton.textContent = "PLAY";
+    }
+  }
+
+  show(
+    onStart: () => void,
+    onShop: (() => void) | null,
+    onSettings: () => void,
+    continueRound?: number,
+  ): void {
     this.onStart = onStart;
     this.onShop = onShop;
     this.onSettings = onSettings;
+    this.setPlayLabel(continueRound);
     this.el.classList.remove("hidden");
   }
 

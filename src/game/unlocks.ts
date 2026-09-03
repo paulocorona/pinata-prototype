@@ -127,11 +127,73 @@ export function unlockedPinataTypeCount(stats: UnlockRunStats): number {
   return unlockedDefinedPinataTypes(stats).length;
 }
 
-export function pickSpawnPinataType(types: readonly PinataTypeId[], roll01: number): PinataTypeId {
+/**
+ * First smash round a newly unlocked type can appear: at most this share of
+ * living piñatas. The cap is a maximum, not a target — rolls stay random.
+ */
+export const NEW_PINATA_SPAWN_CAP_START = 0.3;
+/** Cap rises by this much each smash round after the type's first appearance. */
+export const NEW_PINATA_SPAWN_CAP_STEP = 0.1;
+
+/** Living-field mix used to enforce per-type spawn caps. */
+export interface SpawnMix {
+  aliveTotal: number;
+  aliveByType: Readonly<Partial<Record<string, number>>>;
+  capByType: Readonly<Partial<Record<string, number>>>;
+}
+
+/** Rounds on the field before a new type's cap reaches 100%. */
+export function newPinataSpawnCapRampRounds(): number {
+  return Math.ceil((1 - NEW_PINATA_SPAWN_CAP_START) / NEW_PINATA_SPAWN_CAP_STEP) + 1;
+}
+
+/** First-spawn round that already counts as fully mixed at `currentRound`. */
+export function fullyRampedFirstSpawnRound(currentRound: number): number {
+  return currentRound - (newPinataSpawnCapRampRounds() - 1);
+}
+
+export function spawnCapForRoundsPresent(roundsPresent: number): number {
+  if (roundsPresent <= 1) return NEW_PINATA_SPAWN_CAP_START;
+  return Math.min(1, NEW_PINATA_SPAWN_CAP_START + (roundsPresent - 1) * NEW_PINATA_SPAWN_CAP_STEP);
+}
+
+export function spawnCapForType(
+  typeId: string,
+  currentRound: number,
+  firstSpawnRoundByType: Readonly<Partial<Record<string, number>>>,
+): number {
+  const first = firstSpawnRoundByType[typeId];
+  if (first == null) return 1;
+  return spawnCapForRoundsPresent(currentRound - first + 1);
+}
+
+function typeFitsSpawnCap(typeId: string, mix: SpawnMix): boolean {
+  const cap = mix.capByType[typeId];
+  if (cap == null || cap >= 1) return true;
+  const afterTotal = mix.aliveTotal + 1;
+  const afterOfType = (mix.aliveByType[typeId] ?? 0) + 1;
+  return afterOfType / afterTotal <= cap + 1e-9;
+}
+
+export function pickSpawnPinataType(
+  types: readonly PinataTypeId[],
+  roll01: number,
+  mix?: SpawnMix,
+): PinataTypeId {
   const pool = types.length > 0 ? types : (["basic"] as const);
+  let pickFrom: readonly PinataTypeId[] = pool;
+  if (mix) {
+    const eligible = pool.filter((id) => typeFitsSpawnCap(id, mix));
+    if (eligible.length > 0) {
+      pickFrom = eligible;
+    } else {
+      const uncapped = pool.filter((id) => (mix.capByType[id] ?? 1) >= 1);
+      if (uncapped.length > 0) pickFrom = uncapped;
+    }
+  }
   const t = Math.min(1, Math.max(0, roll01));
-  const index = Math.min(pool.length - 1, Math.floor(t * pool.length));
-  return pool[index]!;
+  const index = Math.min(pickFrom.length - 1, Math.floor(t * pickFrom.length));
+  return pickFrom[index]!;
 }
 
 export interface UnlockProgress {

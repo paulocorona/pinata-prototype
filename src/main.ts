@@ -2,6 +2,7 @@ import { Game } from "./game/Game";
 import { fitPhoneFrame, installPortraitLock } from "./deviceFrame";
 import { clearStickShopSave } from "./game/sticks";
 import { clearTicketShopSave } from "./game/ticketShop";
+import { clearRunProgressSave } from "./game/runProgress";
 import { clearRound1Tutorial } from "./game/tutorialProgress";
 import { applyOrderHudLayout, ORDER_HUD_LAYOUT } from "./ui/orderHudLayout";
 import { applyAssetCssVars } from "./util/assetUrl";
@@ -13,6 +14,7 @@ function wipePersistedProgressOnce(): void {
     if (localStorage.getItem(PROGRESS_WIPE_FLAG) === "1") return;
     clearTicketShopSave();
     clearStickShopSave();
+    clearRunProgressSave();
     clearRound1Tutorial();
     localStorage.setItem(PROGRESS_WIPE_FLAG, "1");
   } catch {

@@ -7,7 +7,7 @@ import {
   upgradeTitleLines,
 } from "../game/balance";
 import type { GameState } from "../game/GameState";
-import type { UpgradeId } from "../game/balance";
+import type { UpgradeDef, UpgradeId } from "../game/balance";
 import {
   SKILL_NODE_CENTER_PX,
   SKILL_NODE_PX,
@@ -16,6 +16,7 @@ import {
   skillNodeRadiusPx,
   upgradePosition,
 } from "../game/upgradeGrid";
+import { isHandheld } from "../deviceFrame";
 import { assetUrl } from "../util/assetUrl";
 import { formatNumber } from "../util/math";
 
@@ -65,6 +66,24 @@ function upgradeTooltipHtml(text: string): string {
   return parts.join("");
 }
 
+type UpgradeView = {
+  def: UpgradeDef;
+  name: string;
+  title1: string;
+  title2: string;
+  desc: string;
+  lockReason: string;
+  unlocked: boolean;
+  can: boolean;
+  maxed: boolean;
+  owned: boolean;
+  center: boolean;
+  cost: number | null;
+  priceHtml: string;
+  priceLabel: string;
+  tip: string;
+};
+
 export class UpgradeScreen {
   readonly el: HTMLElement;
   private state: GameState | null = null;
@@ -82,6 +101,9 @@ export class UpgradeScreen {
     this.el = document.createElement("div");
     this.el.className = "overlay overlay-upgrades hidden";
     root.appendChild(this.el);
+    this.el.addEventListener("keydown", (ev) => {
+      if (ev.key === "Escape") this.hideNodeDetail();
+    });
   }
 
   show(
@@ -132,76 +154,38 @@ export class UpgradeScreen {
       })
       .join("");
 
+    const handheld = isHandheld();
     const nodes = UPGRADES.filter((u) => visible.has(u.id))
       .map((u) => {
-        const lvl = state.upgrades[u.id];
-        const cost = state.upgradeCost(u.id);
-        const maxed = cost === null;
-        const unlocked = state.isUpgradeUnlocked(u.id);
-        const can = state.canBuy(u.id);
-        const owned = lvl > 0;
-        const center = u.id === "power";
+        const view = this.upgradeView(u.id);
+        if (!view) return "";
         const classes = [
           "skill-node",
           "interactive",
-          center ? "skill-node-center" : "",
-          owned ? "owned" : "",
-          maxed ? "maxed" : "",
-          !unlocked ? "locked" : "",
-          can ? "affordable" : "",
+          view.center ? "skill-node-center" : "",
+          view.owned ? "owned" : "",
+          view.maxed ? "maxed" : "",
+          !view.unlocked ? "locked" : "",
+          view.can ? "affordable" : "",
         ]
           .filter(Boolean)
           .join(" ");
 
-        const desc = upgradeDescription(
-          u,
-          state.upgrades,
-          state.unlockedPinataTypeCount(),
-          state.totalBreaks,
-          state.staminaUsedThisRun,
-        );
-        const missingAll =
-          u.requires
-            ?.filter((req) => state.upgrades[req] < 1)
-            .map((req) => upgradeNameById(req)) ?? [];
-        const anyNames =
-          u.requiresAny?.map((req) => upgradeNameById(req)) ?? [];
-        const missingAny = u.requiresAny?.length
-          ? !u.requiresAny.some((req) => state.upgrades[req] >= 1)
-          : false;
-        const missingFinale = !!u.requiresFinalPayment && !state.hasPaidFinalOrder();
-
-        const lockReason = missingFinale
-          ? "Locked — pay the final Fiesta order first"
-          : missingAny
-          ? `Locked — buy ${anyNames.join(" or ") || "a connected upgrade"} first`
-          : missingAll.length
-            ? `Locked — buy ${missingAll.join(", ") || "a connected upgrade"} first`
-            : `Locked — buy a connected upgrade first`;
-
-        const priceHtml = maxed
-          ? "Owned"
-          : `<img class="skill-node-candy" src="${assetUrl("art/T_CandyCoin.png")}" alt="" draggable="false" /><span class="skill-node-cost-amount">${escapeHtml(formatNumber(cost))}</span>`;
-        const tipParts = [desc];
-        if (!unlocked) tipParts.push(lockReason);
-        const tip = tipParts.join("\n\n");
-        const name = upgradeDisplayName(u);
-        const [title1, title2] = upgradeTitleLines(u);
-        const priceLabel = maxed ? "Owned" : `${formatNumber(cost)} candy`;
-
         const pos = upgradePosition(u.id);
         return `
         <button
+          type="button"
           class="${classes}"
           data-upgrade="${u.id}"
-          data-tip="${escapeHtml(tip)}"
+          data-tip="${escapeHtml(view.tip)}"
           style="left:${pos.x}%;top:${pos.y}%"
-          ${!can ? "disabled" : ""}
-          aria-label="${escapeHtml(`${name}. ${priceLabel}. ${desc}`)}"
+          ${!view.can && !handheld ? "disabled" : ""}
+          ${handheld ? `aria-haspopup="dialog"` : ""}
+          aria-label="${escapeHtml(`${view.name}. ${view.priceLabel}. ${view.desc}`)}"
         >
           <span class="skill-node-ring" aria-hidden="true"></span>
-          <span class="skill-node-name">${escapeHtml(title1)}${title2 ? `<br>${escapeHtml(title2)}` : ""}</span>
-          <span class="skill-node-cost">${priceHtml}</span>
+          <span class="skill-node-name">${escapeHtml(view.title1)}${view.title2 ? `<br>${escapeHtml(view.title2)}` : ""}</span>
+          <span class="skill-node-cost">${view.priceHtml}</span>
         </button>
       `;
       })
@@ -221,6 +205,9 @@ export class UpgradeScreen {
         <button class="btn btn-secondary interactive" data-back>Back</button>
       </div>
       <div class="skill-node-tooltip hidden" data-skill-tooltip role="tooltip"></div>
+      <div class="skill-node-detail-hud hidden" data-skill-detail role="dialog" aria-modal="true" aria-labelledby="skill-node-detail-title">
+        <div class="panel panel-skill-node-detail" data-skill-detail-panel></div>
+      </div>
     `;
 
     this.el.querySelectorAll("[data-upgrade]").forEach((btn) => {
@@ -233,9 +220,12 @@ export class UpgradeScreen {
         ev.stopPropagation();
         const id = (btn as HTMLElement).dataset.upgrade as UpgradeId;
         if (this.tourLock && id !== "power") return;
-        this.onBuy?.(id);
-        this.keepPan = true;
-        this.render();
+        // Tutorial spotlight sits above this overlay, so skip the sheet during the tour.
+        if (isHandheld() && !this.tourLock) {
+          this.showNodeDetail(id);
+          return;
+        }
+        this.purchaseUpgrade(id);
       });
     });
     this.el.querySelector("[data-back]")!.addEventListener("click", () => {
@@ -246,6 +236,7 @@ export class UpgradeScreen {
 
     this.bindTreePan();
     this.bindNodeTooltips();
+    this.bindNodeDetail();
     this.applyTourLockClass();
     if (!this.keepPan) this.fitVisibleTree();
     else this.clampPan();
@@ -264,7 +255,10 @@ export class UpgradeScreen {
   setTourLock(on: boolean): void {
     this.tourLock = on;
     if (!on) this.tourAllowBack = false;
-    if (on) this.hideTooltip();
+    if (on) {
+      this.hideTooltip();
+      this.hideNodeDetail();
+    }
     this.applyTourLockClass();
   }
 
@@ -274,6 +268,115 @@ export class UpgradeScreen {
 
   private applyTourLockClass(): void {
     this.el.querySelector("[data-skill-tree]")?.classList.toggle("is-tour-locked", this.tourLock);
+  }
+
+  private upgradeView(id: UpgradeId): UpgradeView | null {
+    const state = this.state;
+    const def = UPGRADES.find((u) => u.id === id);
+    if (!state || !def) return null;
+
+    const owned = state.upgrades[id] > 0;
+    const cost = state.upgradeCost(id);
+    const maxed = cost === null;
+    const unlocked = state.isUpgradeUnlocked(id);
+    const can = state.canBuy(id);
+    const desc = upgradeDescription(
+      def,
+      state.upgrades,
+      state.unlockedPinataTypeCount(),
+      state.totalBreaks,
+      state.staminaUsedThisRun,
+    );
+    const missingAll =
+      def.requires
+        ?.filter((req) => state.upgrades[req] < 1)
+        .map((req) => upgradeNameById(req)) ?? [];
+    const anyNames = def.requiresAny?.map((req) => upgradeNameById(req)) ?? [];
+    const missingAny = def.requiresAny?.length
+      ? !def.requiresAny.some((req) => state.upgrades[req] >= 1)
+      : false;
+    const missingFinale = !!def.requiresFinalPayment && !state.hasPaidFinalOrder();
+    const lockReason = missingFinale
+      ? "Locked — pay the final Fiesta order first"
+      : missingAny
+        ? `Locked — buy ${anyNames.join(" or ") || "a connected upgrade"} first`
+        : missingAll.length
+          ? `Locked — buy ${missingAll.join(", ") || "a connected upgrade"} first`
+          : `Locked — buy a connected upgrade first`;
+    const priceHtml = maxed
+      ? "Owned"
+      : `<img class="skill-node-candy" src="${assetUrl("art/T_CandyCoin.png")}" alt="" draggable="false" /><span class="skill-node-cost-amount">${escapeHtml(formatNumber(cost))}</span>`;
+    const tipParts = [desc];
+    if (!unlocked) tipParts.push(lockReason);
+    const [title1, title2] = upgradeTitleLines(def);
+    return {
+      def,
+      name: upgradeDisplayName(def),
+      title1,
+      title2,
+      desc,
+      lockReason,
+      unlocked,
+      can,
+      maxed,
+      owned,
+      center: id === "power",
+      cost,
+      priceHtml,
+      priceLabel: maxed ? "Owned" : `${formatNumber(cost)} candy`,
+      tip: tipParts.join("\n\n"),
+    };
+  }
+
+  private purchaseUpgrade(id: UpgradeId): void {
+    this.onBuy?.(id);
+    this.keepPan = true;
+    this.render();
+  }
+
+  private bindNodeDetail(): void {
+    const hud = this.el.querySelector("[data-skill-detail]");
+    if (!(hud instanceof HTMLElement)) return;
+    hud.addEventListener("click", (ev) => {
+      if (ev.target === hud) this.hideNodeDetail();
+    });
+  }
+
+  private showNodeDetail(id: UpgradeId): void {
+    const view = this.upgradeView(id);
+    const hud = this.el.querySelector("[data-skill-detail]");
+    const panel = this.el.querySelector("[data-skill-detail-panel]");
+    if (!view || !(hud instanceof HTMLElement) || !(panel instanceof HTMLElement)) return;
+
+    this.hideTooltip();
+    const buyLabel = view.maxed
+      ? "Owned"
+      : !view.unlocked
+        ? "Locked"
+        : `<img class="skill-node-candy" src="${assetUrl("art/T_CandyCoin.png")}" alt="" draggable="false" /><span>Buy ${escapeHtml(formatNumber(view.cost ?? 0))}</span>`;
+    panel.innerHTML = `
+      <button type="button" class="skill-node-detail-close interactive" data-detail-close aria-label="Close">&times;</button>
+      <h1 id="skill-node-detail-title">${escapeHtml(view.name)}</h1>
+      <div class="skill-node-detail-body">${upgradeTooltipHtml(view.desc)}</div>
+      ${view.unlocked ? "" : `<p class="skill-node-detail-lock">${escapeHtml(view.lockReason)}</p>`}
+      <button type="button" class="btn btn-accent interactive skill-node-detail-buy" data-detail-buy ${view.can ? "" : "disabled"}>
+        ${buyLabel}
+      </button>
+    `;
+    hud.classList.remove("hidden");
+    panel.querySelector("[data-detail-close]")?.addEventListener("click", () => {
+      this.hideNodeDetail();
+    });
+    panel.querySelector("[data-detail-buy]")?.addEventListener("click", () => {
+      if (!this.state?.canBuy(id)) return;
+      this.purchaseUpgrade(id);
+    });
+    const closeBtn = panel.querySelector("[data-detail-close]");
+    if (closeBtn instanceof HTMLElement) closeBtn.focus();
+  }
+
+  private hideNodeDetail(): void {
+    this.el.querySelector("[data-skill-detail]")?.classList.add("hidden");
   }
 
   /** Purchased nodes, tree roots, and locked nodes adjacent to a purchase. */
@@ -480,6 +583,7 @@ export class UpgradeScreen {
   }
 
   private bindNodeTooltips(): void {
+    if (isHandheld()) return;
     const tooltip = this.tooltipEl();
     if (!tooltip) return;
 
@@ -615,6 +719,7 @@ export class UpgradeScreen {
 
   hide(): void {
     this.hideTooltip();
+    this.hideNodeDetail();
     this.setTourLock(false);
     this.el.classList.add("hidden");
   }
