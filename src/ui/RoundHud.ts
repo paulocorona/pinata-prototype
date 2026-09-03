@@ -3,6 +3,7 @@ import { formatNumber } from "../util/math";
 
 export class RoundHud {
   readonly el: HTMLElement;
+  readonly energyCard: HTMLElement;
   onGoEnded: (() => void) | null = null;
   private energyFill: HTMLElement;
   private energyValue: HTMLElement;
@@ -24,6 +25,7 @@ export class RoundHud {
       <div class="hud-countdown hidden" data-countdown aria-hidden="true"></div>
     `;
     root.appendChild(this.el);
+    this.energyCard = this.el.querySelector(".hud-card-energy")!;
     this.energyFill = this.el.querySelector("[data-energy-fill]")!;
     this.energyValue = this.el.querySelector("[data-energy-value]")!;
     this.countdownEl = this.el.querySelector("[data-countdown]")!;

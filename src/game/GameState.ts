@@ -1256,9 +1256,34 @@ export class GameState {
     this.spawnPinataTypes = unlockedDefinedPinataTypes(this.unlockStats());
   }
 
+  /** Types already in the pool (or restored from an old save) start fully mixed. */
+  private markKnownSpawnTypesFullyRamped(): void {
+    const first = fullyRampedFirstSpawnRound(this.round);
+    for (const id of this.spawnPinataTypes) {
+      if (this.firstSpawnRoundByType[id] == null) this.firstSpawnRoundByType[id] = first;
+    }
+  }
+
+  /** Record first-spawn round for types that just joined the pool. */
+  private noteNewSpawnTypes(): void {
+    for (const id of this.spawnPinataTypes) {
+      if (this.firstSpawnRoundByType[id] == null) this.firstSpawnRoundByType[id] = this.round;
+    }
+  }
+
+  /** Max on-screen share per type this smash round (1 = no cap). */
+  spawnCapByType(): Partial<Record<PinataTypeId, number>> {
+    const caps: Partial<Record<PinataTypeId, number>> = {};
+    for (const id of this.spawnPinataTypes) {
+      caps[id] = spawnCapForType(id, this.round, this.firstSpawnRoundByType);
+    }
+    return caps;
+  }
+
   beginRound(): void {
     this.roundStartUnlockedIds = reachedUnlockIds(this.unlockStats());
     this.refreshSpawnPinataTypes();
+    this.noteNewSpawnTypes();
     this.newlyUnlockedThisRound = [];
     this.phase = "warmup";
     this.roundCandy = 0;

@@ -398,12 +398,78 @@ html:not(.is-handheld) .aim-joystick {
   background: linear-gradient(90deg, #2ec4b6, #3dd68c);
 }
 
+.candy-balance-value.is-pulse {
+  display: inline-block;
+  animation: hudCandyPulse 240ms cubic-bezier(0.2, 1.45, 0.32, 1);
+}
+
+@keyframes hudCandyPulse {
+  0% {
+    transform: scale(1);
+  }
+  38% {
+    transform: scale(1.28);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.hud-candy-flies {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.hud-candy-fly {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 15px;
+  height: 15px;
+  margin: -7.5px 0 0 -7.5px;
+  border-radius: 3px;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.35),
+    0 2px 5px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+  will-change: transform, opacity;
+  animation: hudCandyFly var(--dur, 0.32s) cubic-bezier(0.22, 0.12, 0.2, 1) forwards;
+}
+
+@keyframes hudCandyFly {
+  0% {
+    opacity: 1;
+    transform: translate(var(--sx), var(--sy)) scale(1) rotate(0deg);
+  }
+  40% {
+    opacity: 1;
+    transform: translate(var(--mx), var(--my)) scale(1.08) rotate(90deg);
+  }
+  100% {
+    opacity: 0.25;
+    transform: translate(var(--ex), var(--ey)) scale(0.28) rotate(210deg);
+  }
+}
+
 .hud.is-counting-down .hud-card-energy {
   visibility: hidden;
   opacity: 0;
 }
 
 .hud.is-counting-down.is-go-beat .hud-card-energy {
+  visibility: visible;
+  animation: countdownEnergyIn 720ms cubic-bezier(0.14, 1.28, 0.28, 1) both;
+}
+
+#ui-root:has(.hud.is-counting-down) .candy-balance.is-under-energy {
+  visibility: hidden;
+  opacity: 0;
+}
+
+#ui-root:has(.hud.is-counting-down.is-go-beat) .candy-balance.is-under-energy {
   visibility: visible;
   animation: countdownEnergyIn 720ms cubic-bezier(0.14, 1.28, 0.28, 1) both;
 }
@@ -582,9 +648,15 @@ html:not(.is-handheld) .aim-joystick {
   font-family: var(--font-ui);
 }
 
-.candy-balance.is-top {
+.candy-balance.is-top,
+.candy-balance.is-under-energy {
   top: var(--candy-hud-top);
   bottom: auto;
+}
+
+.candy-balance.is-under-energy {
+  /* `top` is set in JS to sit just below the energy card. */
+  top: 0;
 }
 
 .candy-coin-icon {
@@ -1033,6 +1105,7 @@ html:not(.is-handheld) .aim-joystick {
 .round-end-order-frame {
   position: absolute;
   inset: 0;
+  isolation: isolate;
   background: none;
   border-style: solid;
   border-color: transparent;
@@ -1040,6 +1113,16 @@ html:not(.is-handheld) .aim-joystick {
   border-image-source: var(--art-dialogue-box);
   border-image-slice: 118 150 fill;
   border-image-repeat: stretch;
+  pointer-events: none;
+}
+
+.round-end-order-frame::before {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  inset: -2px;
+  border-radius: 0;
+  background: linear-gradient(180deg, #351447 0%, #2d103e 46%, #280d38 100%);
   pointer-events: none;
 }
 
@@ -2352,6 +2435,30 @@ html:not(.is-handheld) .aim-joystick {
   animation: floatUpCandy 1400ms ease forwards;
 }
 
+.float-text-candy:has(.float-text-coin) {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 2px;
+  white-space: nowrap;
+  text-align: left;
+  transform-origin: left center;
+  animation-name: floatUpCandyLeft;
+}
+
+.float-text-coin {
+  width: 1.1em;
+  height: 1.1em;
+  object-fit: contain;
+  flex-shrink: 0;
+  display: block;
+  pointer-events: none;
+}
+
+.float-text-candy-amount {
+  text-align: left;
+}
+
 @keyframes floatUp {
   0% {
     opacity: 1;
@@ -2371,6 +2478,17 @@ html:not(.is-handheld) .aim-joystick {
   100% {
     opacity: 0;
     transform: translate(-50%, -48px) scale(1.15);
+  }
+}
+
+@keyframes floatUpCandyLeft {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) scale(0.9);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(0, -48px) scale(1.15);
   }
 }
 
@@ -2525,6 +2643,7 @@ html:not(.is-handheld) .aim-joystick {
 .story-dialogue {
   position: relative;
   z-index: 1;
+  isolation: isolate;
   width: 100%;
   height: 192px;
   flex-shrink: 0;
@@ -2539,6 +2658,21 @@ html:not(.is-handheld) .aim-joystick {
   flex-direction: column;
   justify-content: flex-start;
   gap: 6px;
+}
+
+.story-dialogue::before {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  inset: -2px;
+  border-radius: 0;
+  background: linear-gradient(180deg, #351447 0%, #2d103e 46%, #280d38 100%);
+  pointer-events: none;
+}
+
+.story-dialogue > * {
+  position: relative;
+  z-index: 1;
 }
 
 .overlay-story.is-warn .story-dialogue {

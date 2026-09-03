@@ -112,6 +112,7 @@ export class Game {
   private pointer = { x: 0.5, y: 0.5 };
   private lastTime = 0;
   private endingRound = false;
+  private readonly worldUi = new THREE.Vector3();
   /** Delay before the next singleton pinata after the opening wave is gone. */
   private respawnTimer = 0;
   /** Countdown to the next Timed Spawn pinata. */
@@ -211,6 +212,10 @@ export class Game {
     };
     this.candyBalance = new CandyBalance(uiRoot);
     this.candyBalance.sync(this.state);
+    this.candyBurst.onCollect = (piece) => {
+      const ui = this.worldToUi(piece.x, piece.y, piece.z);
+      this.candyBalance.flyCandy(ui.x, ui.y, piece.color, piece.payout);
+    };
     this.reticle = new Reticle(reticleEl);
     this.reticle.move(this.pointer.x, this.pointer.y);
     this.aimStick = new AimJoystick(uiRoot, canvas);
@@ -299,6 +304,7 @@ export class Game {
     this.cameraRig.applyAspect(this.width / this.height);
     this.arena.syncBackdrop(this.cameraRig.perspective);
     this.syncPlayBounds();
+    this.candyBalance.syncDock();
   }
 
   /** Keep spawn/travel inside the portrait camera frame. */
@@ -426,8 +432,22 @@ export class Game {
     return slots[bestI];
   }
 
+  private aliveSpawnMix(): { aliveTotal: number; aliveByType: Partial<Record<string, number>> } {
+    const aliveByType: Partial<Record<string, number>> = {};
+    let aliveTotal = 0;
+    for (const p of this.pinatas) {
+      if (!p.alive) continue;
+      aliveTotal += 1;
+      aliveByType[p.typeId] = (aliveByType[p.typeId] ?? 0) + 1;
+    }
+    return { aliveTotal, aliveByType };
+  }
+
   private spawnOne(motionStyle: 0 | 1 | 2, intro = false): void {
-    const pinataTypeId = pickSpawnPinataType(this.state.spawnPinataTypes, rng.next());
+    const pinataTypeId = pickSpawnPinataType(this.state.spawnPinataTypes, rng.next(), {
+      ...this.aliveSpawnMix(),
+      capByType: this.state.spawnCapByType(),
+    });
     const type = PINATA_TYPES[pinataTypeId];
     const home = this.pickHome();
     const glowingChance = this.state.getGlowingSpawnChance();
@@ -519,7 +539,8 @@ export class Game {
     this.state.beginRound();
     this.boot.hide();
     this.hud.show();
-    this.candyBalance.hide();
+    this.candyBurst.clear();
+    this.candyBalance.beginRound(this.state, this.hud.energyCard);
     this.syncCandyUi();
     this.reticle.move(this.pointer.x, this.pointer.y);
     this.syncReticleSize(this.state.getHitRadius());
@@ -543,9 +564,12 @@ export class Game {
   private finishRound(): void {
     if (this.endingRound) return;
     this.endingRound = true;
+    this.candyBurst.harvest();
     // Brief beat then tally
     window.setTimeout(() => {
+      this.candyBalance.flushFlies();
       this.state.endRound();
+      this.candyBalance.endRound();
       this.state.persistRun();
       this.hud.hide();
       this.reticle.hide();
@@ -1154,7 +1178,8 @@ export class Game {
 
   private presentCandyRain(hit: HitEvent): void {
     const hitPos = getPinataHitWorld(hit.pinata).clone();
-    this.candyBurst.rain(hitPos, 42);
+    const leftover = this.candyBurst.rain(hitPos, 42, hit.candyRainPayout);
+    this.candyBalance.creditCandy(leftover);
     this.audio.candyRain();
     this.hud.flashCandyRain(hit.candyRainPayout);
     spawnFloatText(
@@ -1334,9 +1359,12 @@ export class Game {
       }
       if (hit.broke) {
         anyBroke = true;
-        this.candyBurst.burst(hitPos, 28, true);
+        const leftover = this.candyBurst.burst(hitPos, 28, true, hit.candy);
+        this.candyBalance.creditCandy(leftover);
         hit.pinata.group.visible = false;
         this.tryBreakRespawn();
+      } else if (hit.candy > 0) {
+        this.candyBalance.creditCandy(hit.candy);
       }
     }
     if (anyLightning) this.audio.zap();
@@ -1358,6 +1386,15 @@ export class Game {
     }
   }
 
+  /** Project a world point into #ui-root layout pixels. */
+  private worldToUi(x: number, y: number, z: number): { x: number; y: number } {
+    this.worldUi.set(x, y, z).project(this.cameraRig.active);
+    return {
+      x: (this.worldUi.x * 0.5 + 0.5) * this.width,
+      y: (-this.worldUi.y * 0.5 + 0.5) * this.height,
+    };
+  }
+
   private frame = (now: number): void => {
     requestAnimationFrame(this.frame);
     const dt = Math.min(0.05, (now - this.lastTime) / 1000);
@@ -1367,7 +1404,7 @@ export class Game {
 
     const cfg = getRoundConfig(this.state.round);
     this.movement.update(this.pinatas, scaledDt, cfg.movementMultiplier);
-    this.candyBurst.update(scaledDt, this.arena);
+    this.candyBurst.update(scaledDt, this.arena, dt);
     this.lightningFx.update(scaledDt);
     this.ghostStickFx.update(scaledDt);
     this.fireFx.update(scaledDt, this.pinatas);

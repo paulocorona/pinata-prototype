@@ -104,7 +104,7 @@ export function spawnFloatText(
   placeFloatText(root, el, x, y, color, durationMs);
 }
 
-/** Piñata-destroy loot popup: candy amount only (no leading +). */
+/** Piñata-destroy loot popup: candy icon + amount (no leading +). */
 export function spawnCandyFloatText(
   root: HTMLElement,
   x: number,
@@ -115,6 +115,14 @@ export function spawnCandyFloatText(
 ): void {
   const el = document.createElement("div");
   el.className = "float-text float-text-candy";
-  el.textContent = amount;
+  const icon = document.createElement("img");
+  icon.className = "float-text-coin";
+  icon.src = assetUrl("art/T_CandyCoin.png");
+  icon.alt = "";
+  icon.draggable = false;
+  const label = document.createElement("span");
+  label.className = "float-text-candy-amount";
+  label.textContent = amount;
+  el.append(icon, label);
   placeFloatText(root, el, x, y, color, durationMs);
 }
