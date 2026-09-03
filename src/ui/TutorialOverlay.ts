@@ -23,6 +23,8 @@ export type TutorialShowOpts = {
   /** Gold spotlight ring. Defaults to true. */
   pulse?: boolean;
   tapToAdvance?: boolean;
+  /** Let clicks reach the UI under the overlay; don't dim the rest of the screen. */
+  passThrough?: boolean;
   /** Sit the dialogue just above the spotlight instead of the default top/center/bottom. */
   dialoguePlace?: "auto" | "above-target";
   doneHint?: string;
@@ -53,6 +55,7 @@ export class TutorialOverlay {
   private active = false;
   private text = "";
   private tapToAdvance = true;
+  private passThrough = false;
   private doneHint = "Tap";
   private pad = 10;
   private dialoguePlace: "auto" | "above-target" = "auto";
@@ -128,11 +131,13 @@ export class TutorialOverlay {
     this.onSkip = opts.onSkip ?? null;
     this.onUi = opts.onUi ?? null;
     this.tapToAdvance = opts.tapToAdvance !== false;
+    this.passThrough = !!opts.passThrough;
     this.doneHint = silent ? "" : (opts.doneHint ?? (this.tapToAdvance ? "Tap" : ""));
     this.pad = opts.pad ?? 10;
     this.dialoguePlace = opts.dialoguePlace ?? "auto";
     this.target = opts.target;
     this.el.classList.toggle("is-tap-advance", this.tapToAdvance);
+    this.el.classList.toggle("is-pass-through", this.passThrough);
     this.el.classList.toggle("is-silent", silent);
     this.el.classList.toggle("is-tight-pulse", !!opts.tightPulse);
     this.el.classList.toggle("is-no-pulse", opts.pulse === false);
@@ -174,6 +179,8 @@ export class TutorialOverlay {
     this.resizeObs.disconnect();
     this.active = false;
     this.text = "";
+    this.tapToAdvance = true;
+    this.passThrough = false;
     this.target = null;
     this.onAdvance = null;
     this.onSkip = null;
@@ -185,6 +192,7 @@ export class TutorialOverlay {
       "is-dialogue-top",
       "is-dialogue-bottom",
       "is-tap-advance",
+      "is-pass-through",
       "is-silent",
       "is-tight-pulse",
       "is-no-pulse",
@@ -337,7 +345,7 @@ export class TutorialOverlay {
     this.setPane(this.panes.b, 0, bottom, w, Math.max(0, h - bottom));
     this.pulseEl.hidden = false;
     this.placeBox(this.pulseEl, hole);
-    this.holeCatchEl.hidden = !this.tapToAdvance;
+    this.holeCatchEl.hidden = !this.tapToAdvance || this.passThrough;
     this.placeBox(this.holeCatchEl, hole);
     this.placeDialogue(hole);
   };

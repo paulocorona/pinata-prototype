@@ -18,6 +18,7 @@ export class SettingsScreen {
   readonly el: HTMLElement;
   private audio: AudioManager | null = null;
   private onBack: (() => void) | null = null;
+  private onWipe: (() => void) | null = null;
 
   constructor(root: HTMLElement) {
     this.el = document.createElement("div");
@@ -25,9 +26,10 @@ export class SettingsScreen {
     root.appendChild(this.el);
   }
 
-  show(audio: AudioManager, onBack: () => void): void {
+  show(audio: AudioManager, onBack: () => void, onWipe: () => void): void {
     this.audio = audio;
     this.onBack = onBack;
+    this.onWipe = onWipe;
     const handheld = isHandheld();
     const aimMode = getAimMode();
     this.el.innerHTML = `
@@ -110,7 +112,15 @@ export class SettingsScreen {
           />
         </label>
         ` : ""}
-        <button class="btn btn-secondary interactive" data-back>Back</button>
+        <button type="button" class="btn btn-danger interactive" data-wipe>DELETE ALL PROGRESS</button>
+        <button type="button" class="btn btn-secondary interactive" data-back>Back</button>
+      </div>
+      <div class="settings-confirm hidden" data-wipe-confirm>
+        <div class="panel panel-settings-confirm">
+          <p class="settings-confirm-copy">Are you sure? This will delete all of your progress, including tickets and ticket upgrades.</p>
+          <button type="button" class="btn btn-danger interactive" data-wipe-yes>YES</button>
+          <button type="button" class="btn btn-secondary interactive" data-wipe-no>NO</button>
+        </div>
       </div>
     `;
     this.el.classList.remove("hidden");
@@ -125,6 +135,27 @@ export class SettingsScreen {
       const back = this.onBack;
       this.hide();
       back?.();
+    });
+
+    const confirm = this.el.querySelector("[data-wipe-confirm]") as HTMLElement;
+    this.el.querySelector("[data-wipe]")!.addEventListener("click", () => {
+      this.audio?.ui();
+      confirm.classList.remove("hidden");
+    });
+    this.el.querySelector("[data-wipe-no]")!.addEventListener("click", () => {
+      this.audio?.ui();
+      confirm.classList.add("hidden");
+    });
+    this.el.querySelector("[data-wipe-yes]")!.addEventListener("click", () => {
+      this.audio?.ui();
+      const wipe = this.onWipe;
+      this.hide();
+      wipe?.();
+    });
+    confirm.addEventListener("click", (event) => {
+      if (event.target !== confirm) return;
+      this.audio?.ui();
+      confirm.classList.add("hidden");
     });
   }
 
@@ -169,5 +200,6 @@ export class SettingsScreen {
     this.el.classList.add("hidden");
     this.audio = null;
     this.onBack = null;
+    this.onWipe = null;
   }
 }

@@ -113,6 +113,7 @@ import {
   getEquippedStick,
   loadStickShopSave,
   saveStickShopSave,
+  clearStickShopSave,
   stickById,
   syncEquippedStick,
   type StickDef,
@@ -122,6 +123,7 @@ import {
   emptyTicketUpgradeLevels,
   loadTicketShopSave,
   saveTicketShopSave,
+  clearTicketShopSave,
   ticketUpgradeById,
   TICKET_RING,
 } from "./ticketShop";
@@ -266,12 +268,25 @@ export class GameState {
   }
 
   resetRun(): void {
+    this.runNumber += 1;
+    this.persistTickets();
+    this.clearRunProgress();
+  }
+
+  /** Wipe tickets, ticket upgrades, sticks, and the current run. */
+  wipeAllProgress(): void {
+    clearTicketShopSave();
+    clearStickShopSave();
+    this.restoreShop();
+    this.restoreTickets();
+    this.clearRunProgress();
+  }
+
+  private clearRunProgress(): void {
     this.phase = "boot";
     this.round = 1;
     this.candy = 0;
     this.roundCandy = 0;
-    this.runNumber += 1;
-    this.persistTickets();
     this.ticketProgress = 0;
     this.ticketsEarnedThisRun = 0;
     this.orderIndex = 0;

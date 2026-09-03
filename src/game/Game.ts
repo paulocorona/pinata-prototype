@@ -41,7 +41,7 @@ import { SettingsScreen } from "../ui/SettingsScreen";
 import { StoryScreen, FIRST_KID_STORY } from "../ui/StoryScreen";
 import { TutorialOverlay } from "../ui/TutorialOverlay";
 import { CandyBalance } from "../ui/CandyBalance";
-import { hasCompletedRound1Tutorial, markRound1TutorialComplete } from "./tutorialProgress";
+import { clearRound1Tutorial, hasCompletedRound1Tutorial, markRound1TutorialComplete } from "./tutorialProgress";
 import { rng } from "../util/rng";
 import { clamp, formatNumber } from "../util/math";
 import type { UpgradeId } from "./balance";
@@ -515,6 +515,7 @@ export class Game {
     this.divineRayTimer = DIVINE_RAY.intervalSec;
     this.clearPinatas();
     this.state.beginRound();
+    this.boot.hide();
     this.hud.show();
     this.candyBalance.hide();
     this.syncCandyUi();
@@ -652,16 +653,21 @@ export class Game {
   }
 
   private showBackButtonTutorial(): void {
-    this.upgrades.setTourLock(true);
-    this.upgrades.setTourAllowBack(true);
+    this.upgrades.setTourLock(false);
     this.tutorial.show({
-      text: "Well done! Now let's go back.",
+      text: "Well done! Now take your time to look around and click on BACK when you're ready.",
       target: () => this.upgrades.backButton(),
-      tapToAdvance: false,
-      doneHint: "",
+      passThrough: true,
+      tapToAdvance: true,
+      onAdvance: () => this.continueRound1TutorialAfterUpgrades(),
       onSkip: () => this.dismissRound1Tutorial(),
       onUi: () => this.audio.ui(),
     });
+  }
+
+  private continueRound1TutorialAfterUpgrades(): void {
+    this.presentRoundEnd();
+    this.showUnlockChipTutorial();
   }
 
   private showUnlockChipTutorial(): void {
@@ -761,9 +767,8 @@ export class Game {
         }
       },
       onBack: () => {
-        const continueTutorial = this.tutorial.isActive();
-        this.presentRoundEnd();
-        if (continueTutorial) this.showUnlockChipTutorial();
+        if (this.tutorial.isActive()) this.continueRound1TutorialAfterUpgrades();
+        else this.presentRoundEnd();
       },
     });
   }
@@ -891,12 +896,12 @@ export class Game {
       },
       onContinue: () => {
         this.audio.ui();
-        this.restart();
+        this.startNextRun();
       },
     });
   }
 
-  private restart(): void {
+  private resetForNewRun(): void {
     this.round1TutorialDone = true;
     markRound1TutorialComplete();
     this.state.bankRunCandy();
@@ -917,7 +922,20 @@ export class Game {
     this.settings.hide();
     this.story.hide();
     this.tutorial.hide();
+  }
+
+  private restart(): void {
+    this.resetForNewRun();
     this.showBootScreen();
+  }
+
+  private startNextRun(): void {
+    this.resetForNewRun();
+    this.boot.hide();
+    void (async () => {
+      await this.assetsReady;
+      this.startRound();
+    })();
   }
 
   private showBootScreen(): void {
@@ -946,9 +964,22 @@ export class Game {
   private openSettings(): void {
     void this.audio.unlock();
     this.boot.setBehindSettings(true);
-    this.settings.show(this.audio, () => {
-      this.boot.setBehindSettings(false);
-    });
+    this.settings.show(
+      this.audio,
+      () => {
+        this.boot.setBehindSettings(false);
+      },
+      () => this.wipeAllProgress(),
+    );
+  }
+
+  private wipeAllProgress(): void {
+    clearRound1Tutorial();
+    this.round1TutorialDone = false;
+    this.state.wipeAllProgress();
+    this.syncWeaponStick();
+    this.boot.setBehindSettings(false);
+    this.showBootScreen();
   }
 
   private openShop(): void {
