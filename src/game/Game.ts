@@ -147,11 +147,47 @@ export class Game {
   ) {
     this.uiRoot = uiRoot;
     this.canvas = canvas;
+
+    this.hud = new RoundHud(uiRoot);
+    this.hud.onGoEnded = () => {
+      if (!this.goAwaitingEnd) return;
+      this.goAwaitingEnd = false;
+      this.goHoldRemaining = ROUND_GO_HOLD_SEC;
+    };
+    this.candyBalance = new CandyBalance(uiRoot);
+    this.candyBalance.sync(this.state);
+    this.candyBurst.onCollect = (piece) => {
+      const ui = this.worldToUi(piece.x, piece.y, piece.z);
+      this.candyBalance.flyCandy(ui.x, ui.y, piece.color, piece.payout);
+    };
+    this.reticle = new Reticle(reticleEl);
+    this.reticle.move(this.pointer.x, this.pointer.y);
+    this.aimStick = new AimJoystick(uiRoot, canvas);
+    this.aimStick.onNudge = (dx, dy) => {
+      this.applyAim(
+        clamp(this.pointer.x + dx, 0, this.width),
+        clamp(this.pointer.y + dy, 0, this.height),
+      );
+    };
+    this.roundEnd = new RoundEndOverlay(uiRoot);
+    this.unlockPopup = new UnlockPopup(uiRoot);
+    this.upgrades = new UpgradeScreen(uiRoot);
+    this.orderPrep = new OrderScreen(uiRoot);
+    this.summary = new SummaryScreen(uiRoot);
+    this.lose = new LoseScreen(uiRoot);
+    this.ticketShop = new TicketShopScreen(uiRoot);
+    this.boot = new BootScreen(uiRoot);
+    this.shop = new ShopScreen(uiRoot);
+    this.settings = new SettingsScreen(uiRoot);
+    this.story = new StoryScreen(uiRoot);
+    this.tutorial = new TutorialOverlay(uiRoot);
+
     this.renderer = new THREE.WebGLRenderer({
       canvas,
       antialias: true,
-      powerPreference: "high-performance",
+      powerPreference: "default",
       stencil: true,
+      failIfMajorPerformanceCaveat: false,
     });
     this.renderer.autoClearStencil = true;
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -208,40 +244,6 @@ export class Game {
     const fill = new THREE.DirectionalLight(0xffd0a8, 0.32);
     fill.position.set(7, 5, 8);
     this.scene.add(fill);
-
-    this.hud = new RoundHud(uiRoot);
-    this.hud.onGoEnded = () => {
-      if (!this.goAwaitingEnd) return;
-      this.goAwaitingEnd = false;
-      this.goHoldRemaining = ROUND_GO_HOLD_SEC;
-    };
-    this.candyBalance = new CandyBalance(uiRoot);
-    this.candyBalance.sync(this.state);
-    this.candyBurst.onCollect = (piece) => {
-      const ui = this.worldToUi(piece.x, piece.y, piece.z);
-      this.candyBalance.flyCandy(ui.x, ui.y, piece.color, piece.payout);
-    };
-    this.reticle = new Reticle(reticleEl);
-    this.reticle.move(this.pointer.x, this.pointer.y);
-    this.aimStick = new AimJoystick(uiRoot, canvas);
-    this.aimStick.onNudge = (dx, dy) => {
-      this.applyAim(
-        clamp(this.pointer.x + dx, 0, this.width),
-        clamp(this.pointer.y + dy, 0, this.height),
-      );
-    };
-    this.roundEnd = new RoundEndOverlay(uiRoot);
-    this.unlockPopup = new UnlockPopup(uiRoot);
-    this.upgrades = new UpgradeScreen(uiRoot);
-    this.orderPrep = new OrderScreen(uiRoot);
-    this.summary = new SummaryScreen(uiRoot);
-    this.lose = new LoseScreen(uiRoot);
-    this.ticketShop = new TicketShopScreen(uiRoot);
-    this.boot = new BootScreen(uiRoot);
-    this.shop = new ShopScreen(uiRoot);
-    this.settings = new SettingsScreen(uiRoot);
-    this.story = new StoryScreen(uiRoot);
-    this.tutorial = new TutorialOverlay(uiRoot);
 
     this.bindInput();
     requestAnimationFrame(() => this.onResize());

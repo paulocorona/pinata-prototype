@@ -1,28 +1,37 @@
 import { assetUrl } from "../util/assetUrl";
 
+const BOOT_MARKUP = `
+  <div class="boot-hero">
+    <img class="boot-logo" src="${assetUrl("art/T_Logo.png")}" alt="Piñata Payday" draggable="false" />
+    <div class="boot-actions">
+      <button class="btn btn-primary boot-play interactive" data-start>PLAY</button>
+      <button class="btn boot-shop interactive" data-shop>SHOP</button>
+      <button class="btn boot-settings interactive" data-settings>SETTINGS</button>
+    </div>
+  </div>
+`;
+
 export class BootScreen {
   readonly el: HTMLElement;
   private playButton: HTMLButtonElement;
 
   constructor(root: HTMLElement) {
-    this.el = document.createElement("div");
+    this.el = root.querySelector(".overlay-boot") ?? document.createElement("div");
     this.el.className = "overlay overlay-boot";
-    this.el.innerHTML = `
-      <div class="boot-hero">
-        <img class="boot-logo" src="${assetUrl("art/T_Logo.png")}" alt="Piñata Payday" draggable="false" />
-        <div class="boot-actions">
-          <button class="btn btn-primary boot-play interactive" data-start>PLAY</button>
-          <button class="btn boot-shop interactive" data-shop>SHOP</button>
-          <button class="btn boot-settings interactive" data-settings>SETTINGS</button>
-        </div>
-      </div>
-    `;
-    root.appendChild(this.el);
+    if (!this.el.querySelector("[data-start]")) {
+      this.el.innerHTML = BOOT_MARKUP;
+    }
+    if (!this.el.parentElement) root.appendChild(this.el);
+
+    const logo = this.el.querySelector<HTMLImageElement>(".boot-logo");
+    if (logo) logo.src = assetUrl("art/T_Logo.png");
+
     this.playButton = this.el.querySelector("[data-start]") as HTMLButtonElement;
 
     this.playButton.addEventListener("click", () => {
+      if (!this.onStart) return;
       this.hide();
-      this.onStart?.();
+      this.onStart();
     });
     this.el.querySelector("[data-shop]")!.addEventListener("click", () => {
       if (!this.onShop) return;
@@ -71,6 +80,17 @@ export class BootScreen {
 
   setBehindSettings(active: boolean): void {
     this.el.classList.toggle("is-behind-settings", active);
+  }
+
+  showError(message: string): void {
+    this.el.classList.remove("hidden");
+    let err = this.el.querySelector(".boot-error");
+    if (!err) {
+      err = document.createElement("p");
+      err.className = "boot-error";
+      this.el.querySelector(".boot-actions")?.prepend(err);
+    }
+    err.textContent = message;
   }
 }
 

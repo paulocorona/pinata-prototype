@@ -14,8 +14,21 @@
   <body>
     <div id="phone-slot">
       <div id="app">
-        <canvas id="game-canvas"></canvas>
-        <div id="ui-root"></div>
+        <div id="game-layer">
+          <canvas id="game-canvas"></canvas>
+        </div>
+        <div id="ui-root">
+          <div class="overlay overlay-boot">
+            <div class="boot-hero">
+              <img class="boot-logo" src="./art/T_Logo.png" alt="Piñata Payday" draggable="false" />
+              <div class="boot-actions">
+                <button class="btn btn-primary boot-play interactive" data-start>PLAY</button>
+                <button class="btn boot-shop interactive" data-shop>SHOP</button>
+                <button class="btn boot-settings interactive" data-settings>SETTINGS</button>
+              </div>
+            </div>
+          </div>
+        </div>
         <div id="reticle" aria-hidden="true">
           <span class="ch-dot"></span>
         </div>

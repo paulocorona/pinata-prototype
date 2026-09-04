@@ -65,6 +65,8 @@
   --candy-hud-top: max(68px, calc(var(--safe-top) + 12px));
   /* Square skill-tree cells so square nodes sit without overlap. */
   --skill-tree-cell: 128px;
+  --art-courtyard: none;
+  --art-dialogue-box: none;
 }
 
 *,
@@ -155,7 +157,12 @@ body {
   width: var(--phone-w);
   height: var(--phone-h);
   overflow: hidden;
-  background: #e07830 var(--art-courtyard) center / cover no-repeat;
+  /* Color stays if --art-courtyard is unset (JS has not run yet). */
+  background-color: #e07830;
+  background-image: var(--art-courtyard);
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
   cursor: none;
   container-type: size;
   container-name: phone;
@@ -187,13 +194,19 @@ body {
   }
 }
 
+#game-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  transform: translateZ(0);
+}
+
 #game-canvas {
   position: absolute;
   inset: 0;
   display: block;
   width: 100%;
   height: 100%;
-  z-index: 0;
   touch-action: none;
 }
 
@@ -201,7 +214,9 @@ body {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  z-index: 10;
+  z-index: 50;
+  isolation: isolate;
+  transform: translateZ(0);
 }
 
 #ui-root .interactive {
@@ -2530,14 +2545,18 @@ html:not(.is-handheld) .aim-joystick {
   justify-content: center;
   gap: 0;
   overflow: hidden;
-  background:
+  background-color: #e07830;
+  background-image:
     linear-gradient(
       180deg,
       rgba(8, 4, 12, 0.58) 0%,
       rgba(8, 4, 12, 0.52) 45%,
       rgba(8, 4, 12, 0.62) 100%
     ),
-    var(--art-courtyard) center / cover no-repeat;
+    var(--art-courtyard);
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
   padding: calc(var(--safe-top) + 6px) 16px calc(var(--safe-bottom) + 18px);
 }
 
@@ -2547,20 +2566,23 @@ html:not(.is-handheld) .aim-joystick {
   align-items: center;
   justify-content: center;
   width: 99%;
+  height: 100%;
   min-height: 0;
   max-height: 100%;
-  transform: translateY(0);
+  flex: 1 1 auto;
 }
 
 .boot-logo {
   position: relative;
   z-index: 0;
-  width: 100%;
+  display: block;
+  width: auto;
+  max-width: 100%;
   height: auto;
-  max-height: min(46cqh, 100%);
+  max-height: 42%;
   object-fit: contain;
   pointer-events: none;
-  transform: translateY(clamp(8px, 4cqh, 32px));
+  flex: 0 1 auto;
   filter:
     drop-shadow(0 0 1px rgba(0, 0, 0, 0.85))
     drop-shadow(0 4px 6px rgba(0, 0, 0, 0.55))
@@ -2575,7 +2597,20 @@ html:not(.is-handheld) .aim-joystick {
   align-items: center;
   gap: 10px;
   width: 100%;
-  margin-top: clamp(8px, 3cqh, 28px);
+  flex: 0 0 auto;
+  margin-top: clamp(8px, 3vh, 28px);
+}
+
+.boot-error {
+  margin: 0 16px 8px;
+  max-width: 280px;
+  text-align: center;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 15px;
+  line-height: 1.35;
+  color: #ffd166;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.65);
 }
 
 .overlay-boot.is-behind-settings .boot-actions {

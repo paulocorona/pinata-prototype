@@ -45,4 +45,20 @@ if (!phoneSlot || !canvas || !uiRoot || !reticle || !rotateGate) {
 
 fitPhoneFrame(phoneSlot);
 installPortraitLock(rotateGate);
-new Game(canvas, uiRoot, reticle);
+
+try {
+  new Game(canvas, uiRoot, reticle);
+} catch (err) {
+  console.error(err);
+  const boot = uiRoot.querySelector(".overlay-boot");
+  boot?.classList.remove("hidden");
+  let msg = boot?.querySelector(".boot-error");
+  if (boot && !msg) {
+    msg = document.createElement("p");
+    msg.className = "boot-error";
+    boot.querySelector(".boot-actions")?.prepend(msg);
+  }
+  if (msg) {
+    msg.textContent = "This browser can't start the 3D game. Try Safari or Chrome.";
+  }
+}
